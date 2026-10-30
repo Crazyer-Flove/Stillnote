@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,readFile} from 'node:fs/promises';
+import {mkdtemp,mkdir,readFile,realpath} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {createRequire} from 'node:module';
@@ -18,7 +18,7 @@ test('built-in workspace migration preserves custom spaces, note contents and tr
  assert.deepEqual(simplifyWorkspaces(next.notes,next.settings),next);
 });
 test('native folder access persists selection and confines all operations to chosen root',async()=>{
- const temp=await mkdtemp(path.join(os.tmpdir(),'stillnote-folder-'));const root=path.join(temp,'vault');await mkdir(root);
+ const temp=await realpath(await mkdtemp(path.join(os.tmpdir(),'stillnote-folder-')));const root=path.join(temp,'vault');await mkdir(root);
  const handlers=new Map<string,Function>();const setup=()=>registerFolders({app:{getPath:()=>temp},ipcMain:{handle:(key:string,fn:Function)=>handlers.set(key,fn)},dialog:{showOpenDialog:async()=>({canceled:false,filePaths:[root]})},window:()=>undefined,checkSender:()=>{}});
  setup();const call=(name:string,...args:unknown[])=>handlers.get('stillnote:'+name)!({},...args);
  await assert.rejects(()=>call('folder-op','other',[],'list'));
