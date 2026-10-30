@@ -7,9 +7,9 @@
 <img alt="MIT" src="https://img.shields.io/badge/license-MIT-6f7d59" />
 </div>
 
-Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。无需注册账号，在安静的纸张色界面记录想法，用工作区整理，再导出为 Markdown、图片或 PDF。界面语言为中文。
+Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。无需注册账号，在克制的中性色界面记录想法，用工作区整理，再导出为 Markdown、图片或 PDF。界面语言为中文。
 
-![Stillnote 1.2.1 工作区](docs/images/workspace-v120.png)
+![Stillnote 1.3.0 工作区](docs/images/workspace-v130.png)
 
 ## 下载与开始
 
@@ -17,17 +17,21 @@ Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。无
 
 | 文件 | 使用方式 |
 | --- | --- |
-| `Stillnote-1.2.1-Windows-x64-Portable.exe` | 双击直接运行，首次解压运行时可能稍慢 |
-| `Stillnote-1.2.1-Windows-x64-Setup.exe` | 当前用户安装，支持选择安装位置与开始菜单入口 |
+| `Stillnote-1.3.0-Windows-x64-Portable.exe` | 双击直接运行，首次解压运行时可能稍慢 |
+| `Stillnote-1.3.0-Windows-x64-Setup.exe` | 当前用户安装，支持选择安装位置与开始菜单入口 |
 | `SHA256SUMS.txt` | 核对下载文件 SHA-256 |
 
 桌面快捷方式在「系统设置 → 外观 → 创建桌面快捷方式」主动创建。便携版移动位置后，请重新创建快捷方式。当前 EXE 未签名，请从本仓库下载并核验来源。
 
 ```powershell
-Get-FileHash .\Stillnote-1.2.1-Windows-x64-Portable.exe -Algorithm SHA256
+Get-FileHash .\Stillnote-1.3.0-Windows-x64-Portable.exe -Algorithm SHA256
 ```
 
-## 1.2.1 的使用方式
+## 1.3.0 界面更新
+
+参考 Codex 的紧凑侧栏和中性色层次，统一导航、标题、输入区与按钮。折叠时顶部只保留展开按钮，工作区和工具菜单使用独立弹层，随窗口边缘避让，不再被侧栏裁切；点击外部或 Esc 可关闭。
+
+## 使用方式
 
 - **工作区**：首次使用只有默认工作区；左侧工作区菜单进入管理，可以创建和删除。默认工作区不能删除；删除其他工作区时，其中笔记和回收站记录移入默认工作区，磁盘文件保留。
 - **目录**：在「系统设置 → 文件夹存储」选择一个根文件夹。Windows 使用原生选择器显示实际路径，并在重启后记住选择；网页使用浏览器授权，不提供任意磁盘绝对路径访问。
@@ -46,10 +50,10 @@ Get-FileHash .\Stillnote-1.2.1-Windows-x64-Portable.exe -Algorithm SHA256
 
 图片在磁盘 Markdown 中使用相对路径；JSON 快照保留内嵌图片，用于恢复。远程图片仍是网络链接，不会自动下载。写入需要主动确认，不是实时双向同步；不会自动删除目标目录中的旧文件，冲突和预览后被外部修改的文件会被保护。
 
-![统一根目录设置](docs/images/folders-v120.png)
+![折叠侧栏与完整工作区菜单](docs/images/sidebar-v130.png)
 
 <details><summary>窄屏工作区布局</summary>
-<img src="docs/images/mobile-v120.png" width="320" alt="窄屏工作区设置" />
+<img src="docs/images/mobile-v130.png" width="320" alt="窄屏工作区设置" />
 </details>
 
 ## 功能
@@ -73,7 +77,7 @@ PDF 使用图像排版，不是可编辑或可搜索的文本 PDF。远程图片
 
 网页、桌面版、不同浏览器和不同域名之间不会自动同步。迁移时先在原环境导出 JSON，再在新版「备份与恢复」中预览并导入。升级前建议保留一份备份。
 
-1.2.1 会移除旧版内置的“工作与项目、研习与灵感”，将其中笔记及历史移入默认工作区；用户自建工作区保留。迁移采用成组保存，失败时保留原始库。
+1.3.0 会移除旧版内置的“工作与项目、研习与灵感”，将其中笔记及历史移入默认工作区；用户自建工作区保留。迁移采用成组保存，失败时保留原始库。
 
 JSON 备份包含笔记、历史、笔记引用的本机图片、工作区及允许的偏好；不包含独立图片资源库、文件夹授权、API Key、最近搜索、常用筛选和导出参数。桌面路径记忆只保存在本机，不随备份授权其他电脑的文件系统。
 

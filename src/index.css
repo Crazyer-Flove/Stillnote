@@ -463,3 +463,50 @@ button:disabled { cursor: not-allowed; }
 .sn-sidebar { overflow-x:hidden; }
 .sn-sidebar-resize { right:0; width:6px; }
 @media (min-width:768px) { .is-collapsed .sn-collapse { right:0; } }
+/* Neutral workspace UI. Menus live in a viewport layer, outside sidebar overflow. */
+:root { --sn-paper:#ffffff; --sn-sidebar:#f7f7f8; --sn-surface:#ffffff; --sn-ink:#202020; --sn-muted:#737373; --sn-line:#e6e6e8; --sn-soft:#ededee; --sn-accent:#242424; --sn-accent-hover:#414141; }
+.dark { --sn-paper:#202020; --sn-sidebar:#181818; --sn-surface:#252525; --sn-ink:#ececec; --sn-muted:#a0a0a0; --sn-line:#383838; --sn-soft:#303030; --sn-accent:#e8e8e8; --sn-accent-hover:#ffffff; }
+.sn-sidebar { padding:12px 10px; border-color:var(--sn-line); }
+.sn-sidebar .sn-brand-row { height:40px; min-height:40px; margin:0 0 22px; padding:0 6px; align-items:center; gap:10px; }
+.sn-sidebar .sn-brand { font:600 17px/1.4 var(--sn-sans); letter-spacing:-.3px; gap:9px; min-width:0; }
+.sn-sidebar .sn-brand svg { flex:none; color:var(--sn-ink); }
+.sn-sidebar .sn-collapse { position:static; opacity:1; border:0; background:transparent; width:30px; height:30px; margin:0; flex:none; }
+.sn-sidebar .sn-collapse:hover { background:var(--sn-soft); }
+.sn-workspace { margin-bottom:16px; }
+.sn-workspace-trigger { min-height:38px; padding:8px 10px; gap:10px; font-size:13px; border:1px solid var(--sn-line); border-radius:8px; background:var(--sn-surface); }
+.sn-nav { gap:3px; padding:0; border:0; }
+.sn-sidebar .sn-nav-item { min-height:36px; padding:8px 10px; font-size:13px; gap:10px; border-radius:7px; }
+.sn-nav-item svg { width:18px; height:18px; }
+.sn-sidebar-footer { border-top:0; padding-top:8px; }
+.sn-sidebar .sn-sidebar-footer .sn-nav-item { min-height:36px; font-size:13px; color:var(--sn-muted); }
+.sn-sidebar .sn-sidebar-footer .sn-settings-link { margin-top:3px; }
+.sn-desktop-sidebar .sn-sidebar.is-collapsed { width:64px!important; padding:12px 10px; }
+.sn-sidebar.is-collapsed .sn-brand-row { padding:0; justify-content:center; }
+.sn-sidebar.is-collapsed .sn-workspace-trigger,.sn-sidebar.is-collapsed .sn-nav-item { width:36px; height:36px; min-height:36px; padding:0; justify-content:center; margin-inline:auto; border-color:transparent; background:transparent; }
+.sn-sidebar.is-collapsed .sn-workspace-trigger:hover,.sn-sidebar.is-collapsed .sn-nav-item:hover,.sn-sidebar.is-collapsed .sn-nav-item.is-active { background:var(--sn-soft); }
+.sn-menu-layer { z-index:100; min-width:0; max-height:calc(100dvh - 24px); overflow:auto; box-shadow:0 8px 32px #00000018; border-radius:10px; padding:6px; }
+.sn-menu-layer .sn-menu-item span { min-width:0; overflow-wrap:anywhere; }
+.sn-menu-layer .sn-tool-menu { padding:3px; max-height:none; }
+.sn-menu-layer .sn-tool-menu button { width:100%; padding:9px 8px; border-radius:6px; text-align:left; }
+.sn-menu-layer .sn-tool-menu button:hover { background:var(--sn-soft); }
+.sn-journal { max-width:1120px; padding:20px clamp(18px,4vw,52px) 64px; }
+.sn-topbar { margin-bottom:38px; gap:16px; }
+.sn-search { height:38px; background:var(--sn-sidebar); border-color:transparent; border-radius:8px; }
+.sn-search input { font-size:13px; }
+.sn-introduction h1 { font:600 clamp(23px,2.4vw,30px)/1.4 var(--sn-sans); letter-spacing:-.6px; }
+.sn-introduction p { font-size:14px; margin-top:10px; color:var(--sn-muted); }
+.sn-composer { border:1px solid var(--sn-line); background:var(--sn-surface); border-radius:14px; box-shadow:0 2px 6px #00000004; }
+.sn-composer textarea { font-size:15px; min-height:94px; }
+.sn-composer-toolbar { gap:12px; }
+.sn-primary { min-width:88px; min-height:36px; padding:8px 14px; border-radius:8px; gap:8px; font-size:13px; }
+.dark .sn-primary { color:#202020; }
+.sn-composer-tools button { font-size:12px; }
+.sn-library-actions { margin-top:16px; font-size:12px; }
+.sn-empty h2 { font:500 21px/1.5 var(--sn-sans); }
+.sn-empty p { font-size:14px; }
+.sn-empty > .sn-caption { letter-spacing:1.5px; font-size:10px; }
+.sn-note { border-color:var(--sn-line); border-radius:12px; box-shadow:none; }
+.sn-note-body .prose { font-size:15px; line-height:1.8; }
+.sn-editor-dialog,.sn-settings-dialog { border-radius:14px; box-shadow:0 16px 70px #00000022; }
+.sn-settings-tabs .sn-nav-item { font-size:13px; min-height:36px; }
+@media(max-width:767px) { .sn-journal{padding:16px 18px 48px;} .sn-topbar{margin-bottom:28px;} .sn-introduction h1{font-size:24px;} .sn-mobile-overlay .sn-sidebar{width:min(280px,85vw)!important;} }
