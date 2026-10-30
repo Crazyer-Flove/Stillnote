@@ -2,30 +2,6 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      (function() {
-        try {
-          var origFetch = window.fetch;
-          if (origFetch) {
-            var currentFetch = origFetch.bind(window);
-            Object.defineProperty(window, 'fetch', {
-              get: function() {
-                return currentFetch;
-              },
-              set: function(fn) {
-                if (typeof fn === 'function') {
-                  currentFetch = fn;
-                }
-              },
-              configurable: true,
-              enumerable: true
-            });
-          }
-        } catch (e) {
-          // Fallback if Object.defineProperty is restricted
-        }
-      })();
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Stillnote · 留住一闪而过的想法</title>
     <meta name="description" content="随手记录，认真生活。Stillnote 是温润、安静的 Markdown 灵感笔记。" />

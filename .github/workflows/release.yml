@@ -38,4 +38,5 @@ jobs:
         shell: pwsh
         run: |
           $assets = (Get-ChildItem release/*.exe).FullName
-          gh release create $env:GITHUB_REF_NAME @assets release/SHA256SUMS.txt --title "Stillnote $env:GITHUB_REF_NAME" --notes-file docs/releases/v1.0.0.md --verify-tag
+          $notes = "docs/releases/$($env:GITHUB_REF_NAME).md"
+          gh release create $env:GITHUB_REF_NAME @assets release/SHA256SUMS.txt --title "Stillnote $env:GITHUB_REF_NAME" --notes-file $notes --verify-tag

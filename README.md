@@ -24,8 +24,8 @@ Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。打
 
 | 文件 | 适合场景 |
 | --- | --- |
-| `Stillnote-1.0.0-Windows-x64-Portable.exe` | 下载后双击运行，无需安装 |
-| `Stillnote-1.0.0-Windows-x64-Setup.exe` | 安装到指定目录，添加开始菜单入口 |
+| `Stillnote-1.0.1-Windows-x64-Portable.exe` | 下载后双击运行，无需安装 |
+| `Stillnote-1.0.1-Windows-x64-Setup.exe` | 安装到指定目录，添加开始菜单入口 |
 | `SHA256SUMS.txt` | 核对下载文件的 SHA-256 |
 
 支持 Windows 10/11 x64。首次打开便携版需要解压内置运行时，可能稍慢。安装包采用当前用户安装，无需管理员权限。
@@ -35,7 +35,7 @@ Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。打
 当前发布未购买代码签名证书，EXE 没有数字签名。请从本仓库 Releases 下载并核对校验值；如系统提示风险，应先核验文件来源。
 
 ```powershell
-Get-FileHash .\Stillnote-1.0.0-Windows-x64-Portable.exe -Algorithm SHA256
+Get-FileHash .\Stillnote-1.0.1-Windows-x64-Portable.exe -Algorithm SHA256
 ```
 
 > 便携版表示免安装，并不表示数据保存在 EXE 旁边。桌面版数据位于 `%APPDATA%\Stillnote`。便携版与安装版共用此目录。备份是可靠迁移和恢复的必要步骤。

@@ -39,7 +39,7 @@ async function createWindow(){
  window.webContents.on('will-attach-webview',event=>event.preventDefault());
  if(smokeDir){
   await fs.mkdir(smokeDir,{recursive:true});
-  const errors=[];window.webContents.on('console-message',(_event,details)=>{if(details.level==='error')errors.push(details.message);});
+  const errors=[];window.webContents.on('console-message',details=>{if(details.level==='error')errors.push(details.message);});
   const timer=setTimeout(()=>{fs.writeFile(path.join(smokeDir,'result.json'),JSON.stringify({ok:false,error:'Renderer timeout'})).finally(()=>app.exit(1));},45000);
   window.webContents.once('did-finish-load',async()=>{
    try{

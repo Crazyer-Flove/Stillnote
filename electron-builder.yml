@@ -8,7 +8,9 @@ files:
   - dist/**/*
   - desktop/**/*
   - package.json
+  - '!**/node_modules/**/*'
 asar: true
+npmRebuild: false
 win:
   icon: desktop/icon.ico
   target:

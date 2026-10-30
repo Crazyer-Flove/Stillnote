@@ -14,3 +14,5 @@ release/
 release-smoke/
 *.lnk
 release-final/
+release-verified/
+release-slim/
