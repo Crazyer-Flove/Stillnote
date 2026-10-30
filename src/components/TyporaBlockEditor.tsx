@@ -153,7 +153,7 @@ export const TyporaBlockEditor: React.FC<TyporaBlockEditorProps> = ({
       <div className="flex items-center justify-between px-3 py-1.5 bg-slate-100/80 dark:bg-zinc-800/60 rounded-xl text-xs text-slate-500 dark:text-zinc-400 border border-slate-200/60 dark:border-zinc-700/60 shrink-0">
         <div className="flex items-center gap-1.5 font-medium">
           <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Typora 所见即所得书写模式（支持拖拽/粘贴本地图片）</span>
+          <span>实时预览 · 支持拖拽或粘贴图片</span>
         </div>
 
         <button
@@ -164,10 +164,10 @@ export const TyporaBlockEditor: React.FC<TyporaBlockEditorProps> = ({
               ? 'bg-indigo-600 text-white shadow-2xs'
               : 'bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:text-indigo-600'
           }`}
-          title="切换全篇 Markdown 源码模式"
+          title="切换 Markdown 源码"
         >
           <Code2 className="w-3.5 h-3.5" />
-          <span>{useSourceView ? '切回 Typora 实时模式' : '全篇源码模式'}</span>
+          <span>{useSourceView ? '实时预览' : '源码'}</span>
         </button>
       </div>
 

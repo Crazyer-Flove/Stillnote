@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React, { useState, useRef } from 'react';
 import { X, Image as ImageIcon, Upload, Link as LinkIcon, Check, Loader2, FolderCheck, HardDrive } from 'lucide-react';
 import { saveImageToLocalSrcFolder } from '../utils/imageStorage';
@@ -22,6 +23,7 @@ export const ImageInsertModal: React.FC<ImageInsertModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen) return null;
 
   const processFile = (file: File) => {
@@ -129,7 +131,7 @@ export const ImageInsertModal: React.FC<ImageInsertModalProps> = ({
   };
 
   return (
-    <div
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="插入图片" tabIndex={-1}
       onPaste={handlePasteInModal}
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
     >

@@ -1,3 +1,4 @@
+import { rehypeSearch, highlightParts } from '../utils/search';
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -32,6 +33,7 @@ import { ImageEditModal } from './ImageEditModal';
 import { CodeBlockThemeId, TableThemeId } from '../types';
 
 interface MarkdownRendererProps {
+  searchQuery?: string;
   content: string;
   onTagClick?: (tag: string) => void;
   onBiLinkClick?: (title: string) => void;
@@ -51,6 +53,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   isInteractive = true,
   codeBlockTheme = 'light-mac',
   tableTheme = 'modern-indigo',
+  searchQuery = '',
 }) => {
   const [zoomedImage, setZoomedImage] = useState<{ url: string; altText?: string } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<{ url: string; title?: string } | null>(null);
@@ -225,7 +228,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       <div className={`prose dark:prose-invert max-w-none prose-stone prose-sm md:prose-base transition-colors leading-relaxed ${className}`}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
+          rehypePlugins={[rehypeKatex, [rehypeSearch, { query: searchQuery }]]}
           urlTransform={(url) => {
             if (!url) return '';
             let cleanUrl = url.replace(/[\r\n]+/g, '').trim();
@@ -331,7 +334,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                   }`}
                   {...props}
                 >
-                  {renderRichText(children, onTagClick, onBiLinkClick)}
+                  {renderRichText(children, onTagClick, onBiLinkClick, searchQuery)}
                 </li>
               );
             },
@@ -478,7 +481,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             blockquote({ children }: any) {
               return (
                 <blockquote className="relative my-4 pl-4 pr-3 py-2.5 rounded-r-xl border-l-4 border-indigo-500 dark:border-indigo-400 bg-gradient-to-r from-indigo-50/70 via-slate-50/50 to-transparent dark:from-indigo-950/30 dark:via-zinc-900/40 text-slate-700 dark:text-zinc-200 shadow-2xs font-sans text-sm md:text-base leading-relaxed">
-                  {renderRichText(children, onTagClick, onBiLinkClick)}
+                  {renderRichText(children, onTagClick, onBiLinkClick, searchQuery)}
                 </blockquote>
               );
             },
@@ -497,10 +500,10 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               return <tr>{children}</tr>;
             },
             th({ children }: any) {
-              return <th className="p-3 text-left font-semibold text-xs md:text-sm tracking-wider">{renderRichText(children, onTagClick, onBiLinkClick)}</th>;
+              return <th className="p-3 text-left font-semibold text-xs md:text-sm tracking-wider">{renderRichText(children, onTagClick, onBiLinkClick, searchQuery)}</th>;
             },
             td({ children }: any) {
-              return <td className="p-3 text-left align-middle text-xs md:text-sm">{renderRichText(children, onTagClick, onBiLinkClick)}</td>;
+              return <td className="p-3 text-left align-middle text-xs md:text-sm">{renderRichText(children, onTagClick, onBiLinkClick, searchQuery)}</td>;
             },
 
             // Headings
@@ -528,14 +531,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               if (hasImage) {
                 return (
                   <div className="my-2 leading-relaxed text-stone-700 dark:text-zinc-200">
-                    {renderRichText(children, onTagClick, onBiLinkClick)}
+                    {renderRichText(children, onTagClick, onBiLinkClick, searchQuery)}
                   </div>
                 );
               }
 
               return (
                 <p className="my-2 leading-relaxed text-stone-700 dark:text-zinc-200">
-                  {renderRichText(children, onTagClick, onBiLinkClick)}
+                  {renderRichText(children, onTagClick, onBiLinkClick, searchQuery)}
                 </p>
               );
             },
@@ -590,269 +593,22 @@ const CodeBlock: React.FC<{
   defaultTheme = 'light-mac',
   isInteractive = true,
 }) => {
-  const [theme, setTheme] = useState<CodeBlockThemeId>(defaultTheme);
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [copied, setCopied] = useState(false);
-  const [showThemePicker, setShowThemePicker] = useState(false);
-
   useEffect(() => {
-    setTheme(defaultTheme);
-  }, [defaultTheme]);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const themeConfigs: Record<CodeBlockThemeId, {
-    container: string;
-    header: string;
-    codeText: string;
-    langBadge: string;
-    copyBtn: string;
-    dot1: string;
-    dot2: string;
-    dot3: string;
-  }> = {
-    'dark-mac': {
-      container: 'bg-zinc-950 text-zinc-100 border-zinc-800/80',
-      header: 'bg-zinc-900/90 border-zinc-800/80 text-zinc-400',
-      codeText: 'text-zinc-200',
-      langBadge: 'text-indigo-400 bg-indigo-950/40 border-indigo-900/40',
-      copyBtn: 'bg-zinc-800/70 hover:bg-zinc-800 text-zinc-300 border-zinc-700/50',
-      dot1: 'bg-[#ff5f56] border border-red-600/70 ring-1 ring-black/20 shadow-xs',
-      dot2: 'bg-[#ffbd2e] border border-amber-600/70 ring-1 ring-black/20 shadow-xs',
-      dot3: 'bg-[#27c93f] border border-emerald-600/70 ring-1 ring-black/20 shadow-xs',
-    },
-    'light-mac': {
-      container: 'bg-slate-50 text-slate-800 border-slate-300 dark:border-zinc-700 shadow-sm',
-      header: 'bg-slate-200/90 border-slate-300 text-slate-600',
-      codeText: 'text-slate-800',
-      langBadge: 'text-indigo-700 bg-indigo-100 border-indigo-300',
-      copyBtn: 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300',
-      dot1: 'bg-[#ff5f56] border border-red-500/80 ring-1 ring-slate-400/30 shadow-xs',
-      dot2: 'bg-[#ffbd2e] border border-amber-500/80 ring-1 ring-slate-400/30 shadow-xs',
-      dot3: 'bg-[#27c93f] border border-emerald-500/80 ring-1 ring-slate-400/30 shadow-xs',
-    },
-    'dracula': {
-      container: 'bg-[#282a36] text-[#f8f8f2] border-purple-900/60 shadow-lg',
-      header: 'bg-[#21222c] border-purple-900/40 text-purple-300',
-      codeText: 'text-[#f8f8f2]',
-      langBadge: 'text-purple-300 bg-purple-950/60 border-purple-800/50',
-      copyBtn: 'bg-[#44475a] hover:bg-[#6272a4] text-white border-purple-700/40',
-      dot1: 'bg-[#ff5555] border border-red-600/70 ring-1 ring-black/20 shadow-xs',
-      dot2: 'bg-[#f1fa8c] border border-amber-400/70 ring-1 ring-black/20 shadow-xs',
-      dot3: 'bg-[#50fa7b] border border-emerald-500/70 ring-1 ring-black/20 shadow-xs',
-    },
-    'monokai': {
-      container: 'bg-[#272822] text-[#f8f8f2] border-amber-950/60 shadow-lg',
-      header: 'bg-[#1e1f1c] border-amber-900/40 text-amber-400',
-      codeText: 'text-[#f8f8f2]',
-      langBadge: 'text-amber-400 bg-amber-950/60 border-amber-800/50',
-      copyBtn: 'bg-[#3e3d32] hover:bg-[#49483e] text-amber-200 border-amber-800/40',
-      dot1: 'bg-[#f92672] border border-rose-600/70 ring-1 ring-black/20 shadow-xs',
-      dot2: 'bg-[#e6db74] border border-amber-400/70 ring-1 ring-black/20 shadow-xs',
-      dot3: 'bg-[#a6e22e] border border-emerald-500/70 ring-1 ring-black/20 shadow-xs',
-    },
-    'nord': {
-      container: 'bg-[#2e3440] text-[#eceff4] border-slate-700 shadow-lg',
-      header: 'bg-[#242933] border-slate-700 text-sky-300',
-      codeText: 'text-[#eceff4]',
-      langBadge: 'text-sky-300 bg-[#3b4252] border-sky-800/40',
-      copyBtn: 'bg-[#3b4252] hover:bg-[#434c5e] text-slate-200 border-slate-600',
-      dot1: 'bg-[#bf616a] border border-red-500/70 ring-1 ring-black/20 shadow-xs',
-      dot2: 'bg-[#ebcb8b] border border-amber-400/70 ring-1 ring-black/20 shadow-xs',
-      dot3: 'bg-[#a3be8c] border border-emerald-500/70 ring-1 ring-black/20 shadow-xs',
-    },
-  };
-
-  const style = themeConfigs[theme] || themeConfigs['dark-mac'];
-  const highlightedTokens = highlightSyntax(code, language, theme, isInteractive);
-
-  return (
-    <div className={`relative my-4 rounded-2xl border ${style.container} shadow-xl transition-all hover:shadow-2xl ${isInteractive ? 'overflow-hidden' : 'overflow-visible'} w-full max-w-full`}>
-      {/* macOS Window Header Bar */}
-      <div className={`flex items-center justify-between px-4 py-2.5 ${style.header} rounded-t-2xl border-b text-xs font-mono`}>
-        {/* macOS Three Dots */}
-        <div className="flex items-center gap-2">
-          <span className={`w-3 h-3 rounded-full ${style.dot1} inline-block transition-transform hover:scale-110 cursor-pointer`} title="关闭" />
-          <span className={`w-3 h-3 rounded-full ${style.dot2} inline-block transition-transform hover:scale-110 cursor-pointer`} title="最小化" />
-          <span className={`w-3 h-3 rounded-full ${style.dot3} inline-block transition-transform hover:scale-110 cursor-pointer`} title="最大化" />
-        </div>
-
-        {/* Language Tag, Theme Switcher & Copy */}
-        <div className="flex items-center gap-2.5 relative">
-          <span className={`uppercase tracking-widest font-semibold text-[11px] px-2 py-0.5 rounded-md border ${style.langBadge} font-mono`}>
-            {language || 'code'}
-          </span>
-
-          {/* Quick Theme Switcher Button */}
-          {isInteractive && (
-            <button
-              type="button"
-              onClick={() => setShowThemePicker(!showThemePicker)}
-              className={`p-1.5 rounded-lg text-xs hover:opacity-80 transition-opacity flex items-center gap-1 ${style.copyBtn}`}
-              title="选择代码块渲染主题"
-            >
-              <Palette className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {isInteractive && showThemePicker && (
-            <div className="absolute right-12 top-full mt-2 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl p-2 min-w-[160px] text-xs font-sans text-slate-800 dark:text-zinc-200 animate-fadeIn">
-              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold px-2 py-1">
-                代码高亮主题:
-              </p>
-              {(
-                [
-                  ['dark-mac', 'macOS 暗黑'],
-                  ['light-mac', 'macOS 纯白'],
-                  ['dracula', 'Dracula 经典'],
-                  ['monokai', 'Monokai 复古'],
-                  ['nord', 'Nord 极光'],
-                ] as const
-              ).map(([tId, tLabel]) => (
-                <button
-                  key={tId}
-                  type="button"
-                  onClick={() => {
-                    setTheme(tId);
-                    setShowThemePicker(false);
-                  }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between ${
-                    theme === tId
-                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold'
-                      : 'hover:bg-slate-100 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  <span>{tLabel}</span>
-                  {theme === tId && <Check className="w-3.5 h-3.5" />}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {isInteractive && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-medium border ${style.copyBtn} transition-all active:scale-95`}
-              title="复制代码"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-emerald-500 font-medium">已复制</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>复制</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <pre className={`p-4 rounded-b-2xl ${isInteractive ? 'overflow-x-auto' : 'whitespace-pre-wrap break-all overflow-visible'} text-xs md:text-sm font-mono leading-relaxed ${style.codeText}`}>
-        <code>{highlightedTokens}</code>
-      </pre>
-    </div>
-  );
+    const observer = new MutationObserver(() => setDark(document.documentElement.classList.contains('dark')));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  const theme: CodeBlockThemeId = !isInteractive ? defaultTheme : dark ? 'dark-mac' : 'light-mac';
+  const copy = async () => { try { await navigator.clipboard.writeText(code); setCopied(true); } catch { setCopied(false); } };
+  return <div className="sn-code-block my-4 border rounded-xl overflow-hidden bg-slate-50 dark:bg-zinc-900 text-slate-800 dark:text-zinc-100">
+    <div className="flex justify-between items-center px-4 py-2 border-b text-xs font-mono"><span>{language || 'text'}</span>{isInteractive && <button aria-label="复制代码" onClick={copy}>{copied ? '已复制' : '复制代码'}</button>}</div>
+    <pre className={`p-4 text-sm leading-relaxed ${isInteractive ? 'overflow-x-auto' : 'whitespace-pre-wrap break-all'}`}><code>{highlightSyntax(code, language, theme, isInteractive)}</code></pre>
+  </div>;
 };
 
-// Interactive Table component with preset theme styles & responsive overflow
-const StyledMarkdownTable: React.FC<{
-  children: React.ReactNode;
-  defaultTheme?: TableThemeId;
-  isInteractive?: boolean;
-}> = ({
-  children,
-  defaultTheme = 'modern-indigo',
-  isInteractive = true,
-}) => {
-  const [theme, setTheme] = useState<TableThemeId>(defaultTheme);
-
-  useEffect(() => {
-    setTheme(defaultTheme);
-  }, [defaultTheme]);
-
-  const themeStyles: Record<TableThemeId, { wrapper: string; table: string }> = {
-    'modern-indigo': {
-      wrapper: 'border-indigo-200/80 dark:border-indigo-950/80 shadow-sm bg-white dark:bg-zinc-900',
-      table: '[&_thead]:bg-gradient-to-r [&_thead]:from-indigo-600 [&_thead]:to-violet-600 [&_thead]:text-white [&_tbody_tr]:border-b [&_tbody_tr]:border-indigo-100/60 dark:[&_tbody_tr]:border-indigo-950/40 [&_tbody_tr]:hover:bg-indigo-50/40 dark:[&_tbody_tr]:hover:bg-indigo-950/30',
-    },
-    'zebra-stripe': {
-      wrapper: 'border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900',
-      table: '[&_thead]:bg-slate-800 dark:[&_thead]:bg-zinc-800 [&_thead]:text-slate-100 [&_tbody_tr:nth-child(even)]:bg-slate-50/90 dark:[&_tbody_tr:nth-child(even)]:bg-zinc-800/40 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 dark:[&_tbody_tr]:border-zinc-800/50 [&_tbody_tr]:hover:bg-slate-100/60 dark:[&_tbody_tr]:hover:bg-zinc-800/70',
-    },
-    'minimal-dark': {
-      wrapper: 'border-zinc-800 shadow-md bg-zinc-950 text-zinc-100',
-      table: '[&_thead]:bg-zinc-900 [&_thead]:text-indigo-400 [&_thead]:font-mono [&_tbody_tr]:border-b [&_tbody_tr]:border-zinc-800/80 [&_tbody_tr]:hover:bg-zinc-900/60 [&_td]:text-zinc-300',
-    },
-    'border-light': {
-      wrapper: 'border-2 border-slate-300 dark:border-zinc-700 shadow-xs bg-white dark:bg-zinc-900',
-      table: '[&_thead]:bg-slate-100 dark:[&_thead]:bg-zinc-800 [&_thead]:text-slate-800 dark:[&_thead]:text-zinc-100 [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-zinc-700 [&_td]:border [&_td]:border-slate-200 dark:[&_td]:border-zinc-800 [&_tbody_tr]:hover:bg-slate-50 dark:[&_tbody_tr]:hover:bg-zinc-800/50',
-    },
-    'emerald-fresh': {
-      wrapper: 'border-emerald-200/80 dark:border-emerald-950/80 shadow-sm bg-white dark:bg-zinc-900',
-      table: '[&_thead]:bg-gradient-to-r [&_thead]:from-emerald-600 [&_thead]:to-teal-600 [&_thead]:text-white [&_tbody_tr]:border-b [&_tbody_tr]:border-emerald-100/60 dark:[&_tbody_tr]:border-emerald-950/40 [&_tbody_tr]:hover:bg-emerald-50/40 dark:[&_tbody_tr]:hover:bg-emerald-950/30',
-    },
-    'amber-warm': {
-      wrapper: 'border-amber-200/80 dark:border-amber-950/80 shadow-sm bg-white dark:bg-zinc-900',
-      table: '[&_thead]:bg-gradient-to-r [&_thead]:from-amber-500 [&_thead]:to-orange-500 [&_thead]:text-white [&_tbody_tr]:border-b [&_tbody_tr]:border-amber-100/60 dark:[&_tbody_tr]:border-amber-950/40 [&_tbody_tr]:hover:bg-amber-50/40 dark:[&_tbody_tr]:hover:bg-amber-950/30',
-    },
-  };
-
-  const currentStyle = themeStyles[theme] || themeStyles['modern-indigo'];
-
-  return (
-    <div className="my-5 space-y-1.5">
-      {/* Theme Preset Selector Bar */}
-      {isInteractive && (
-        <div className="flex items-center justify-between px-1 text-xs text-slate-400 dark:text-zinc-500 flex-wrap gap-2">
-          <span className="font-mono text-[11px] font-medium text-slate-500 dark:text-zinc-400 flex items-center gap-1">
-            📊 数据表格 (预设渲染风格):
-          </span>
-          <div className="flex items-center gap-1 flex-wrap">
-            {(
-              [
-                ['modern-indigo', '靛蓝', 'bg-indigo-500'],
-                ['zebra-stripe', '斑马纹', 'bg-slate-600'],
-                ['minimal-dark', '简约深色', 'bg-zinc-900'],
-                ['border-light', '网格框', 'bg-slate-300'],
-                ['emerald-fresh', '翡绿', 'bg-emerald-500'],
-                ['amber-warm', '琥珀', 'bg-amber-500'],
-              ] as const
-            ).map(([key, name, colorBg]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTheme(key)}
-                className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all ${
-                  theme === key
-                    ? 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 shadow-xs scale-105 font-semibold'
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${colorBg}`} />
-                <span>{name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Styled Table Container with Responsive Overflow */}
-      <div className={`${isInteractive ? 'overflow-x-auto custom-scrollbar' : 'overflow-visible w-full'} rounded-2xl border ${currentStyle.wrapper} transition-all duration-200`}>
-        <table className={`min-w-full text-left text-xs md:text-sm border-collapse ${currentStyle.table}`}>
-          {children}
-        </table>
-      </div>
-    </div>
-  );
-};
+const StyledMarkdownTable: React.FC<{ children: React.ReactNode; defaultTheme?: TableThemeId; isInteractive?: boolean }> = ({children, isInteractive = true}) => <div className={`sn-table my-4 border rounded-lg ${isInteractive ? 'overflow-x-auto' : 'overflow-visible'}`}><table className="min-w-full border-collapse text-left text-sm [&_th]:bg-slate-100 dark:[&_th]:bg-zinc-800 [&_th]:font-semibold [&_th]:p-3 [&_td]:p-3 [&_tr]:border-b [&_tr]:border-slate-200 dark:[&_tr]:border-zinc-700">{children}</table></div>;
 
 // Language alias mapping for PrismJS
 const LANGUAGE_ALIAS_MAP: Record<string, string> = {
@@ -918,66 +674,6 @@ function getTokenColorClass(type: string, theme: CodeBlockThemeId): string {
           return 'text-rose-600';
         default:
           return 'text-slate-800';
-      }
-
-    case 'dracula':
-      switch (type) {
-        case 'comment':
-          return 'text-[#6272a4] italic';
-        case 'string': case 'char':
-          return 'text-[#f1fa8c]';
-        case 'keyword': case 'atrule':
-          return 'text-[#ff79c6] font-semibold';
-        case 'function': case 'class-name':
-          return 'text-[#50fa7b] font-medium';
-        case 'property': case 'tag': case 'boolean': case 'number': case 'constant':
-          return 'text-[#bd93f9] font-medium';
-        case 'operator': case 'punctuation':
-          return 'text-[#ff79c6]';
-        case 'variable': case 'builtin':
-          return 'text-[#8be9fd]';
-        default:
-          return 'text-[#f8f8f2]';
-      }
-
-    case 'monokai':
-      switch (type) {
-        case 'comment':
-          return 'text-[#75715e] italic';
-        case 'string': case 'char':
-          return 'text-[#e6db74]';
-        case 'keyword': case 'atrule':
-          return 'text-[#f92672] font-semibold';
-        case 'function': case 'class-name':
-          return 'text-[#a6e22e] font-medium';
-        case 'property': case 'tag': case 'boolean': case 'number': case 'constant':
-          return 'text-[#ae81ff] font-medium';
-        case 'operator': case 'punctuation':
-          return 'text-[#f92672]';
-        case 'variable': case 'builtin':
-          return 'text-[#66d9ef]';
-        default:
-          return 'text-[#f8f8f2]';
-      }
-
-    case 'nord':
-      switch (type) {
-        case 'comment':
-          return 'text-[#616e88] italic';
-        case 'string': case 'char':
-          return 'text-[#a3be8c]';
-        case 'keyword': case 'atrule':
-          return 'text-[#81a1c1] font-semibold';
-        case 'function': case 'class-name':
-          return 'text-[#88c0d0] font-medium';
-        case 'property': case 'tag': case 'boolean': case 'number': case 'constant':
-          return 'text-[#b48ead] font-medium';
-        case 'operator': case 'punctuation':
-          return 'text-[#81a1c1]';
-        case 'variable': case 'builtin':
-          return 'text-[#8fbcbb]';
-        default:
-          return 'text-[#eceff4]';
       }
 
     case 'dark-mac':
@@ -1083,12 +779,13 @@ function highlightSyntax(
 function renderRichText(
   children: React.ReactNode,
   onTagClick?: (tag: string) => void,
-  onBiLinkClick?: (title: string) => void
+  onBiLinkClick?: (title: string) => void,
+  searchQuery = ''
 ): React.ReactNode {
   if (typeof children !== 'string') {
     if (Array.isArray(children)) {
       return children.map((child, idx) => (
-        <React.Fragment key={idx}>{renderRichText(child, onTagClick, onBiLinkClick)}</React.Fragment>
+        <React.Fragment key={idx}>{renderRichText(child, onTagClick, onBiLinkClick, searchQuery)}</React.Fragment>
       ));
     }
     return children;
@@ -1123,7 +820,7 @@ function renderRichText(
           title={`跳转双链笔记: ${wikiTitle}`}
         >
           <Link className="w-3 h-3 text-emerald-500 shrink-0" />
-          <span>{wikiTitle}</span>
+          <span>{highlightParts(wikiTitle, searchQuery).map((part, index) => part.match ? <mark key={index} data-search-match>{part.text}</mark> : part.text)}</span>
         </button>
       );
     } else if (tagName) {
@@ -1139,7 +836,7 @@ function renderRichText(
           }}
           className="inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md text-xs font-medium whitespace-nowrap break-keep shrink-0 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-900/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
         >
-          #{tagName}
+          {highlightParts(`#${tagName}`, searchQuery).map((part, index) => part.match ? <mark key={index} data-search-match>{part.text}</mark> : part.text)}
         </button>
       );
     }

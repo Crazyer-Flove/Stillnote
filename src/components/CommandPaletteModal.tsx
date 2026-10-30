@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search,
@@ -169,18 +170,6 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         },
       },
       {
-        id: 'cmd-view-grid',
-        group: 'views',
-        groupName: '视图切换',
-        title: '切换至：瀑布流卡片视图',
-        subtitle: '两栏/多栏自适应网格卡片',
-        icon: <LayoutGrid className="w-4 h-4 text-violet-500" />,
-        action: () => {
-          onSetViewMode('grid');
-          onShowToast('已切换至瀑布流卡片视图', 'info');
-        },
-      },
-      {
         id: 'cmd-view-analytics',
         group: 'views',
         groupName: '视图切换',
@@ -276,8 +265,8 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         id: 'cmd-export-batch',
         group: 'settings',
         groupName: '偏好设置',
-        title: '全量随记导出与 JSON 备份',
-        subtitle: '导出 Markdown / JSON / TXT 数据文件',
+        title: '导出当前笔记内容',
+        subtitle: '选择笔记导出 Markdown、TXT 或 HTML',
         icon: <Download className="w-4 h-4 text-blue-500" />,
         action: () => {
           onOpenExportModal();
@@ -288,7 +277,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         group: 'settings',
         groupName: '偏好设置',
         title: '赞赏与支持作者 ❤️',
-        subtitle: '请作者喝杯咖啡，支持 FloveNote 开源持续迭代',
+        subtitle: '请作者喝杯咖啡，支持 Stillnote 开源持续迭代',
         icon: <Heart className="w-4 h-4 text-rose-500 fill-rose-500/20" />,
         action: () => {
           onOpenSponsorModal();
@@ -387,10 +376,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     }
   }, [selectedIndex]);
 
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
-    <div
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="命令面板" tabIndex={-1}
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-[10vh] p-4 animate-fadeIn"
       onClick={onClose}
     >
@@ -534,7 +524,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
           <span className="flex items-center gap-1">
             <Command className="w-3 h-3 text-indigo-500" />
-            <span>FloveNote Quick Command Palette</span>
+            <span>Stillnote Quick Command Palette</span>
           </span>
         </div>
       </div>

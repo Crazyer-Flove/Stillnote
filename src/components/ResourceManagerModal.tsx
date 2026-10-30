@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import { resolveSrcImageUrl } from '../utils/imageStorage';
+import { useDialog } from '../hooks/useDialog';
+import React, { useState, useMemo, useRef } from 'react';
 import { Note } from '../types';
 import {
   X,
@@ -20,6 +22,7 @@ interface AssetFile {
   id: string;
   name: string;
   url: string;
+  references?: string[];
   sourceNoteId?: string;
   sourceNoteTitle?: string;
   type: 'image' | 'link' | 'file';
@@ -41,17 +44,22 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
   onCreateNoteWithImage,
   onShowToast,
 }) => {
+  const dialogRef=useDialog(true,onClose);
+  const [failedImages,setFailedImages]=useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<AssetFile | null>(null);
   const [customAssets, setCustomAssets] = useState<AssetFile[]>(() => {
     try {
       const stored = localStorage.getItem('flovenote_custom_assets');
-      return stored ? JSON.parse(stored) : [];
+      const parsed=stored?JSON.parse(stored):[];return Array.isArray(parsed)?parsed.filter(a=>a&&typeof a.id==='string'&&typeof a.name==='string'&&typeof a.url==='string'):[];
     } catch {
       return [];
     }
   });
+
+  const assetsRef=useRef(customAssets);
+  const persistAssets=(next:AssetFile[])=>{try{localStorage.setItem('flovenote_custom_assets',JSON.stringify(next));assetsRef.current=next;setCustomAssets(next);return true;}catch{onShowToast('图片资源保存失败，原资源保持不变。','error');return false;}};
 
   // Extract assets from all notes automatically
   const noteExtractedAssets = useMemo(() => {
@@ -62,19 +70,23 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
     notes.forEach((note) => {
       let match;
       let imgIndex = 1;
-      while ((match = mdImgRegex.exec(note.content)) !== null) {
+      const versions=[{content:note.content,label:note.deletedAt?'回收站':'正文'},...(note.history||[]).map(h=>({content:h.content,label:'历史版本'}))];
+      for(const version of versions) { mdImgRegex.lastIndex=0;
+      while ((match = mdImgRegex.exec(version.content)) !== null) {
         const alt = match[1] || `图片资源 #${imgIndex}`;
         const url = match[2];
         extracted.push({
           id: `extracted-${note.id}-${imgIndex}`,
           name: alt,
           url,
+          references: [(note.content.split('\n')[0].replace(/^#+\s*/,'').slice(0,70)||'无标题笔记')+' · '+version.label],
           sourceNoteId: note.id,
           sourceNoteTitle: note.content.split('\n')[0].replace(/^[#\s]+/, '') || '无标题笔记',
           type: 'image',
           createdAt: note.updatedAt,
         });
         imgIndex++;
+      }
       }
     });
 
@@ -84,13 +96,9 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
   // Combine extracted assets and custom uploaded assets
   const allAssets = useMemo(() => {
     const combined = [...customAssets, ...noteExtractedAssets];
-    // Filter duplicates by URL
-    const seenUrls = new Set<string>();
-    return combined.filter((item) => {
-      if (seenUrls.has(item.url)) return false;
-      seenUrls.add(item.url);
-      return true;
-    });
+    const byUrl=new Map<string,AssetFile>();
+    for(const item of combined) {const old=byUrl.get(item.url);if(old)old.references=[...new Set([...(old.references||[]),...(item.references||[])])];else byUrl.set(item.url,{...item,references:item.references?[...item.references]:[]});}
+    return [...byUrl.values()];
   }, [customAssets, noteExtractedAssets]);
 
   // Filtered assets
@@ -130,17 +138,7 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
           createdAt: Date.now(),
         };
 
-        setCustomAssets((prev) => {
-          const updated = [newAsset, ...prev];
-          try {
-            localStorage.setItem('flovenote_custom_assets', JSON.stringify(updated));
-          } catch (err) {
-            console.error('Failed to save assets:', err);
-          }
-          return updated;
-        });
-
-        onShowToast(`文件 "${file.name}" 已保存至本地资源库`, 'success');
+        if(persistAssets([newAsset,...assetsRef.current])) onShowToast(`文件 "${file.name}" 已保存至本地资源库`, 'success');
       };
       reader.readAsDataURL(file);
     });
@@ -148,30 +146,21 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
     e.target.value = '';
   };
 
-  const copyMarkdown = (asset: AssetFile) => {
-    const code = `![${asset.name}](${asset.url})`;
-    navigator.clipboard.writeText(code);
-    setCopiedId(asset.id);
-    onShowToast('已复制 Markdown 图片代码', 'success');
-    setTimeout(() => setCopiedId(null), 2000);
+  const copyMarkdown = async (asset: AssetFile) => {
+    try { await navigator.clipboard.writeText(`![${asset.name}](${asset.url})`);setCopiedId(asset.id);onShowToast('已复制 Markdown 图片代码','success');setTimeout(()=>setCopiedId(null),2000); }
+    catch { onShowToast('复制失败，请检查剪贴板权限。','error'); }
   };
 
   const handleDeleteCustomAsset = (assetId: string) => {
-    setCustomAssets((prev) => {
-      const updated = prev.filter((a) => a.id !== assetId);
-      try {
-        localStorage.setItem('flovenote_custom_assets', JSON.stringify(updated));
-      } catch (err) {
-        console.error('Storage error:', err);
-      }
-      return updated;
-    });
-    onShowToast('已从本地媒体库删除', 'info');
+    const asset=allAssets.find(a=>a.id===assetId);
+    if(asset?.references?.length){onShowToast('该图片仍被正文、回收站或历史版本引用，不能清理。','info');return;}
+    if(!window.confirm('删除这张未引用的资源库图片？此操作不可恢复。'))return;
+    if(persistAssets(assetsRef.current.filter(a=>a.id!==assetId)))onShowToast('已从本地媒体库删除','info');
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col h-[85vh]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="图片资源" tabIndex={-1} className="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col h-[85vh]">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/80 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -254,7 +243,8 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
                       onClick={() => setSelectedAsset(asset)}
                     >
                       <img
-                        src={asset.url}
+                        onError={()=>setFailedImages(prev=>new Set([...prev,asset.url]))}
+                        src={resolveSrcImageUrl(asset.url)}
                         alt={asset.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
@@ -289,6 +279,7 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
                         )}
                       </div>
 
+                      <details className="text-xs mt-2"><summary>引用与状态 · {asset.references?.length||0} 处</summary><p>{failedImages.has(asset.url)?'图片不可用或当前网络无法访问':'尚未发现加载错误'}</p><p>{asset.size || (asset.url.startsWith('data:')?`约 ${Math.round(asset.url.length*0.75/1024)} KB`:'网络图片 · 大小未知')}</p>{asset.references?.map(ref=><p key={ref}>{ref}</p>)}{!asset.references?.length&&<p>未发现笔记或历史引用</p>}</details>
                       {/* Actions */}
                       <div className="flex items-center justify-between gap-1 mt-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800/60">
                         <button
@@ -345,7 +336,7 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
 
         {/* Modal Footer */}
         <div className="px-6 py-3 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 shrink-0">
-          <span>所有插入的本地图片和网络链接均已妥善存放在您的浏览器本地。</span>
+          <span>上传图片保存在此浏览器；网络图片仍依赖原始网址。清理前检查正文、回收站和历史引用。</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 font-medium bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl transition-colors"
@@ -372,7 +363,7 @@ export const ResourceManagerModal: React.FC<ResourceManagerModalProps> = ({
               <X className="w-6 h-6" />
             </button>
             <img
-              src={selectedAsset.url}
+              src={resolveSrcImageUrl(selectedAsset.url)}
               alt={selectedAsset.name}
               className="max-h-[80vh] max-w-full object-contain rounded-xl shadow-2xl"
             />

@@ -6,6 +6,12 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    build: {rollupOptions:{output:{manualChunks(id){
+      if(!id.includes('node_modules'))return;
+      if(/[/\\](react|react-dom|scheduler)[/\\]/.test(id))return 'framework';
+      if(id.includes('/katex/'))return 'math';
+      if(id.includes('/prismjs/'))return 'syntax';
+    }}}},
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

@@ -75,6 +75,7 @@ export type CodeBlockThemeId = 'dark-mac' | 'light-mac' | 'dracula' | 'monokai' 
 export type TableThemeId = 'modern-indigo' | 'zebra-stripe' | 'minimal-dark' | 'border-light' | 'emerald-fresh' | 'amber-warm';
 
 export interface AppSettings {
+  designVersion?: number;
   defaultEditorMode: 'typora' | 'split' | 'preview';
   showStatsCard: boolean;
   autoSaveDelay: number; // in ms

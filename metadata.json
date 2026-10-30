@@ -1,6 +1,6 @@
 {
-  "name": "FloveNote",
-  "description": "极简简约风格的时间轴 Markdown 笔记工具",
+  "name": "Stillnote",
+  "description": "随手记录，认真生活。安静的 Markdown 灵感笔记。",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+release/
+.desktop-app/
+.tools/
+.publish-repo/
+release-smoke/
+*.lnk
+release-final/

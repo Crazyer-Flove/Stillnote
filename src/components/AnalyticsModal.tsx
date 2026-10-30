@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React from 'react';
 import { Note } from '../types';
 import { ContributionHeatmap } from './ContributionHeatmap';
@@ -19,10 +20,11 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
   selectedDate,
   onSelectDate,
 }) => {
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="创作统计" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="px-5 py-3.5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-zinc-900/90">
@@ -41,7 +43,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
           </div>
 
           <button
-            onClick={onClose}
+            onClick={onClose} aria-label="关闭窗口"
             className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -76,7 +78,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
             <span>点击热力图中的方块可按日期筛选历史笔记</span>
           </div>
           <button
-            onClick={onClose}
+            onClick={onClose} aria-label="关闭窗口"
             className="px-4 py-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl font-medium transition-colors"
           >
             关闭窗口

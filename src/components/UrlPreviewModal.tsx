@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React, { useState } from 'react';
 import {
   X,
@@ -25,6 +26,7 @@ export const UrlPreviewModal: React.FC<UrlPreviewModalProps> = ({
   onClose,
   onShowToast,
 }) => {
+  const dialogRef=useDialog(true,onClose);
   const [copied, setCopied] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
   const [iframeLoaded, setIframeLoaded] = useState(false);
@@ -42,11 +44,15 @@ export const UrlPreviewModal: React.FC<UrlPreviewModalProps> = ({
     // Fallback
   }
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(normalizedUrl);
-    setCopied(true);
-    onShowToast?.('网址链接已成功复制到剪贴板！', 'success');
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(normalizedUrl);
+      setCopied(true);
+      onShowToast?.('网址链接已复制', 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      onShowToast?.('复制失败，请检查剪贴板权限或手动复制网址', 'error');
+    }
   };
 
   const handleOpenExternal = () => {
@@ -54,7 +60,7 @@ export const UrlPreviewModal: React.FC<UrlPreviewModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="网页预览" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-4xl w-full h-[88vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 shrink-0">

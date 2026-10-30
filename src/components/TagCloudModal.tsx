@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React, { useState, useMemo } from 'react';
 import { TagInfo, Note } from '../types';
 import {
@@ -113,6 +114,7 @@ export const TagCloudModal: React.FC<TagCloudModalProps> = ({
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }, [notes, previewTag]);
 
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen) return null;
 
   // Calculate dynamic typography scale & weight for a tag (font size: 12px -> 30px)
@@ -196,7 +198,7 @@ export const TagCloudModal: React.FC<TagCloudModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-900/60 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="标签云" tabIndex={-1} className="fixed inset-0 z-50 bg-stone-900/60 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
       <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-5xl w-full border border-stone-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Top Header */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-zinc-900/80">
@@ -247,7 +249,7 @@ export const TagCloudModal: React.FC<TagCloudModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={onClose} aria-label="关闭窗口"
               className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
             >
               <X className="w-5 h-5" />
@@ -478,7 +480,7 @@ export const TagCloudModal: React.FC<TagCloudModalProps> = ({
           <span>💡 提示：双击标签卡片可直接跳转至主时间线筛选该标签</span>
           <button
             type="button"
-            onClick={onClose}
+            onClick={onClose} aria-label="关闭窗口"
             className="px-4 py-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-semibold rounded-xl transition-colors text-xs"
           >
             关闭

@@ -1,0 +1,30 @@
+appId: io.github.crazyer-flove.stillnote
+productName: Stillnote
+copyright: Copyright © 2026 Crazyer-Flove
+directories:
+  app: .desktop-app
+  output: release
+files:
+  - dist/**/*
+  - desktop/**/*
+  - package.json
+asar: true
+win:
+  icon: desktop/icon.ico
+  target:
+    - target: portable
+      arch: [x64]
+    - target: nsis
+      arch: [x64]
+portable:
+  artifactName: Stillnote-${version}-Windows-x64-Portable.exe
+nsis:
+  artifactName: Stillnote-${version}-Windows-x64-Setup.exe
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  shortcutName: Stillnote
+  license: LICENSE
+  deleteAppDataOnUninstall: false

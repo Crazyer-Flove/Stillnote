@@ -1,57 +1,20 @@
+import { NOTE_TEMPLATES } from '../utils/product';
+import { WritePreviewModal } from './WritePreviewModal';
+import { useDialog } from '../hooks/useDialog';
 import React, { useState } from 'react';
-import { AppSettings, ThemeMode, Note, ExportFormat, Workspace } from '../types';
-import { ContributionHeatmap } from './ContributionHeatmap';
-import { exportNotesContent, downloadFile, formatFriendlyTime } from '../utils/markdownUtils';
-import { SAMPLE_CASE_DOCUMENTS, CaseDocumentItem } from '../utils/caseDocuments';
-import { MarkdownRenderer } from './MarkdownRenderer';
-import {
-  isFileSystemAccessSupported,
-  deriveSubPaths,
-  syncWorkspaceToDirectoryHandle,
-  readNotesFromDirectoryHandle,
-  pickLocalDirectory,
-} from '../utils/localFileSystem';
-import {
-  X,
-  Settings,
-  Sliders,
-  BarChart2,
-  Sun,
-  Moon,
-  Check,
-  Folder,
-  HardDrive,
-  FolderOpen,
-  Download,
-  Upload,
-  Type,
-  FileText,
-  Calendar,
-  Clock,
-  Sparkles,
-  Layers,
-  Flame,
-  HelpCircle,
-  BookOpen,
-  Play,
-  Trash2,
-  FolderKanban,
-  RotateCcw,
-  Plus,
-  Monitor,
-  Laptop,
-  AlertTriangle,
-  FolderPlus,
-  Copy,
-  FileCheck2,
-  Bookmark,
-  ChevronRight,
-  ArrowRight,
-  ExternalLink,
-} from 'lucide-react';
-import { OnboardingHelpModal } from './OnboardingHelpModal';
+import type { AppSettings, ThemeMode, Note, Workspace } from '../types';
+import type { CaseDocumentItem } from '../utils/caseDocuments';
+import { exportNotesContent, downloadFile } from '../utils/markdownUtils';
+import { isFileSystemAccessSupported, previewWorkspaceWrite, DirectoryWritePlan, deriveSubPaths, syncWorkspaceToDirectoryHandle, readNotesFromDirectoryHandle, pickLocalDirectory } from '../utils/localFileSystem';
+import { X } from 'lucide-react';
 
 interface SettingsModalProps {
+  lastBackupAt?: number;
+  lastWriteAt?: number;
+  onOpenTemplate?: (content: string) => void;
+  workspaceCounts?: Record<string, number>;
+  onImportNotes?: (notes: Note[]) => void;
+  onWorkspaceSynced?: () => void;
   settings: AppSettings;
   notes?: Note[];
   onUpdateSettings: (newSettings: AppSettings) => void;
@@ -75,11 +38,12 @@ interface SettingsModalProps {
   onImportFromLocalDirectory?: (dirHandle?: any) => Promise<void>;
   activeDirHandle?: any;
   onSaveDirHandle?: (handle: any) => void;
-  initialTab?: 'editor' | 'analytics' | 'batch_export' | 'appearance' | 'paths' | 'workspaces' | 'trash' | 'help';
+  initialTab?: 'editor' | 'analytics' | 'batch_export' | 'appearance' | 'paths' | 'workspaces' | 'trash' | 'help' | 'backups';
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
+  lastBackupAt, lastWriteAt, onOpenTemplate,
   notes = [],
   onUpdateSettings,
   theme,
@@ -103,12 +67,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   activeDirHandle,
   onSaveDirHandle,
   initialTab = 'editor',
+  onWorkspaceSynced,
+  workspaceCounts = {},
+  onImportNotes,
 }) => {
+  const dialogRef = useDialog(true, onClose);
+  const [shortcutBusy,setShortcutBusy]=useState(false);
+  const [desktopInfo,setDesktopInfo]=useState<{version:string;dataPath:string}|null>(null);
+  React.useEffect(()=>{let active=true;window.stillnoteDesktop?.getInfo().then(info=>{if(active)setDesktopInfo(info);}).catch(()=>{});return()=>{active=false;};},[]);
+  const createShortcut=async()=>{setShortcutBusy(true);try{const result=await window.stillnoteDesktop!.createDesktopShortcut();onShowToast(result.ok?'桌面快捷方式已创建':result.error||'创建失败',result.ok?'success':'error');}catch{onShowToast('创建快捷方式失败，请检查系统权限','error');}finally{setShortcutBusy(false);}};
+
   const [activeTab, setActiveTab] = useState<
-    'editor' | 'analytics' | 'batch_export' | 'appearance' | 'paths' | 'workspaces' | 'trash' | 'help'
+    'editor' | 'analytics' | 'batch_export' | 'appearance' | 'paths' | 'workspaces' | 'trash' | 'help' | 'backups'
   >(initialTab);
-  const [showHelpTour, setShowHelpTour] = useState(false);
-  const [selectedCaseId, setSelectedCaseId] = useState<string>(SAMPLE_CASE_DOCUMENTS[0].id);
 
   // Active Workspace
   const activeWorkspace =
@@ -116,44 +87,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     (settings.workspaces || [])[0] || {
       id: 'default',
       name: '默认工作区',
-      path: '~/Documents/FloveNote/Default',
-      notesPath: '~/Documents/FloveNote/Default/Notes',
-      mediaPath: '~/Documents/FloveNote/Default/.src',
-      backupPath: '~/Documents/FloveNote/Default/Backups',
+      path: '~/Documents/Stillnote/Default',
+      notesPath: '~/Documents/Stillnote/Default/Notes',
+      mediaPath: '~/Documents/Stillnote/Default/.src',
+      backupPath: '~/Documents/Stillnote/Default/Backups',
       createdAt: Date.now(),
     };
 
   // Root Working Folder for Paths Tab
   const [rootWorkingFolder, setRootWorkingFolder] = useState(
-    activeWorkspace.path || '~/Documents/FloveNote'
+    activeWorkspace.path || '~/Documents/Stillnote'
   );
 
   // Storage Paths state
   const [storagePath, setStoragePath] = useState(
-    settings.storagePath || activeWorkspace.notesPath || `${rootWorkingFolder}/Notes`
+    activeWorkspace.notesPath || `${rootWorkingFolder}/Notes`
   );
   const [mediaStoragePath, setMediaStoragePath] = useState(
-    settings.mediaStoragePath || activeWorkspace.mediaPath || `${rootWorkingFolder}/.src`
+    activeWorkspace.mediaPath || `${rootWorkingFolder}/.src`
   );
   const [backupPath, setBackupPath] = useState(
-    settings.backupPath || activeWorkspace.backupPath || `${rootWorkingFolder}/Backups`
+    activeWorkspace.backupPath || `${rootWorkingFolder}/Backups`
   );
 
   // Directory Handle in state
   const [currentDirHandle, setCurrentDirHandle] = useState<any>(activeDirHandle || null);
+  const [writePreview, setWritePreview] = useState<{ handle: any; plan: DirectoryWritePlan } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isImportingFromDir, setIsImportingFromDir] = useState(false);
 
   // New Workspace Input state
   const [newWsName, setNewWsName] = useState('');
-  const [newWsPath, setNewWsPath] = useState('');
-  const [newWsNotesPath, setNewWsNotesPath] = useState('');
-  const [newWsMediaPath, setNewWsMediaPath] = useState('');
-  const [newWsBackupPath, setNewWsBackupPath] = useState('');
-  const [newWsDesc, setNewWsDesc] = useState('');
-  const [showAdvancedWsPaths, setShowAdvancedWsPaths] = useState(false);
-  const [isAddingWs, setIsAddingWs] = useState(false);
-
   // Trash Notes
   const trashNotes = notes.filter((n) => Boolean(n.deletedAt));
 
@@ -194,7 +158,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         onShowToast(`已绑定本地工作目录《${result.name}》，笔记、附件与备份路径已自动联动更新！`, 'success');
       } else if (!isFileSystemAccessSupported()) {
-        const customPath = prompt('请输入电脑本地工作文件夹路径 (如 D:/FloveNotes 或 ~/Documents/Notes)：', rootWorkingFolder);
+        const customPath = prompt('请输入电脑本地工作文件夹路径 (如 D:/Stillnote 或 ~/Documents/Notes)：', rootWorkingFolder);
         if (customPath && customPath.trim()) {
           const derived = deriveSubPaths(customPath.trim());
           setRootWorkingFolder(derived.rootPath);
@@ -223,7 +187,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             workspaces: updatedWorkspaces,
           });
 
-          onShowToast(`已设置工作路径为 ${derived.rootPath}，子路径已联动更新！`, 'success');
+          onShowToast(`已保存路径示意 ${derived.rootPath}；当前浏览器不支持直接写入，请使用导出。`, 'success');
         }
       }
     } catch (err: any) {
@@ -240,6 +204,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       let handle = currentDirHandle;
       if (!handle && isFileSystemAccessSupported()) {
         const picked = await pickLocalDirectory();
+        if (!picked) return;
         if (picked) {
           handle = picked.handle;
           setCurrentDirHandle(handle);
@@ -248,20 +213,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
 
       if (handle) {
-        const stats = await syncWorkspaceToDirectoryHandle(handle, notes, {
+        const plan = await previewWorkspaceWrite(handle, notes, {
           notesDirName: storagePath.split(/[\/\\]/).pop() || 'Notes',
           mediaDirName: mediaStoragePath.split(/[\/\\]/).pop() || '.src',
           backupDirName: backupPath.split(/[\/\\]/).pop() || 'Backups',
         });
-
-        if (stats.success) {
-          onShowToast(
-            `已成功同步！写入 ${stats.notesCount} 篇 Markdown 笔记、${stats.imagesCount} 张附件，生成备份 ${stats.backupFileName}`,
-            'success'
-          );
-        } else {
-          onShowToast(stats.error || '写入本地文件夹失败', 'error');
-        }
+        setWritePreview({ handle, plan });
       } else {
         if (onSyncToLocalDirectory) {
           await onSyncToLocalDirectory();
@@ -274,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      onShowToast('同步到本地文件夹出错，请重试', 'error');
+      onShowToast('读取写入预览失败，请检查文件夹权限与目录名称后重试', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -287,6 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       let handle = currentDirHandle;
       if (!handle && isFileSystemAccessSupported()) {
         const picked = await pickLocalDirectory();
+        if (!picked) return;
         if (picked) {
           handle = picked.handle;
           setCurrentDirHandle(handle);
@@ -295,12 +253,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
 
       if (handle) {
-        const imported = await readNotesFromDirectoryHandle(handle, activeWorkspace.id);
+        const imported = await readNotesFromDirectoryHandle(handle, activeWorkspace.id, storagePath.split(/[\/\\]/).pop() || 'Notes');
         if (imported.length > 0) {
-          if (onImportBackup) {
-            // Convert to fake change event or directly notify
-            onShowToast(`成功从本地目录读取 ${imported.length} 篇 Markdown 笔记！`, 'success');
-          }
+          onImportNotes?.(imported);
         } else {
           onShowToast('所选文件夹中未找到 .md 笔记文件', 'info');
         }
@@ -315,81 +270,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // Directory picker helper for new workspace
-  const handlePickLocalFolderForNewWs = async () => {
-    try {
-      const result = await pickLocalDirectory();
-      if (result) {
-        setNewWsName(result.name);
-        setNewWsPath(result.derivedPaths.rootPath);
-        setNewWsNotesPath(result.derivedPaths.notesPath);
-        setNewWsMediaPath(result.derivedPaths.mediaPath);
-        setNewWsBackupPath(result.derivedPaths.backupPath);
-        onShowToast(`已选择本地文件夹: ${result.name}`, 'success');
-      } else if (!isFileSystemAccessSupported()) {
-        const customPath = prompt('请输入工作区本地文件夹路径：', '~/Documents/FloveNote/Custom');
-        if (customPath && customPath.trim()) {
-          const derived = deriveSubPaths(customPath.trim());
-          setNewWsPath(derived.rootPath);
-          setNewWsNotesPath(derived.notesPath);
-          setNewWsMediaPath(derived.mediaPath);
-          setNewWsBackupPath(derived.backupPath);
-        }
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        onShowToast('选择文件夹失败或取消', 'info');
-      }
-    }
-  };
-
   const handleCreateWorkspace = () => {
-    if (!newWsName.trim()) {
-      onShowToast('请填写工作区名称', 'error');
-      return;
-    }
-    const cleanRoot = newWsPath.trim() || `~/Documents/FloveNote/${newWsName.trim()}`;
-    const derived = deriveSubPaths(cleanRoot);
-
-    const ws: Workspace = {
-      id: `ws-${Date.now()}`,
-      name: newWsName.trim(),
-      path: cleanRoot,
-      notesPath: newWsNotesPath.trim() || derived.notesPath,
-      mediaPath: newWsMediaPath.trim() || derived.mediaPath,
-      backupPath: newWsBackupPath.trim() || derived.backupPath,
-      description: newWsDesc.trim() || '自定义本地文件工作区',
-      createdAt: Date.now(),
-    };
-
-    const currentWorkspaces = settings.workspaces || [];
-    const updatedWorkspaces = [...currentWorkspaces, ws];
-
-    onUpdateSettings({
-      ...settings,
-      workspaces: updatedWorkspaces,
-      activeWorkspaceId: ws.id,
-      storagePath: ws.notesPath,
-      mediaStoragePath: ws.mediaPath,
-      backupPath: ws.backupPath,
-    });
-
-    if (onAddWorkspace) onAddWorkspace(ws);
-    if (onSwitchWorkspace) onSwitchWorkspace(ws.id);
-
-    setNewWsName('');
-    setNewWsPath('');
-    setNewWsNotesPath('');
-    setNewWsMediaPath('');
-    setNewWsBackupPath('');
-    setNewWsDesc('');
-    setIsAddingWs(false);
-    onShowToast(`工作区 "${ws.name}" 创建成功并已自动切换！`, 'success');
+    const name=newWsName.trim();if(!name)return;
+    const paths=deriveSubPaths(`~/Documents/Stillnote/${name}`);
+    const workspace:Workspace={id:crypto.randomUUID(),name,path:paths.rootPath,notesPath:paths.notesPath,mediaPath:paths.mediaPath,backupPath:paths.backupPath,createdAt:Date.now()};
+    onUpdateSettings({...settings,workspaces:[...(settings.workspaces||[]),workspace],activeWorkspaceId:workspace.id});
+    setNewWsName('');onShowToast('工作区已创建，尚未绑定磁盘文件夹','success');
   };
-
-  // Batch Export state
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('md');
-  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set(notes.map((n) => n.id)));
 
   const handleSavePaths = () => {
     const updatedWorkspaces = (settings.workspaces || []).map((w) => {
@@ -415,1465 +302,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onShowToast('工作路径与子目录配置已保存！', 'success');
   };
 
-  const handleResetPaths = () => {
-    const derived = deriveSubPaths('~/Documents/FloveNote');
-    setRootWorkingFolder(derived.rootPath);
-    setStoragePath(derived.notesPath);
-    setMediaStoragePath(derived.mediaPath);
-    setBackupPath(derived.backupPath);
-
-    const updatedWorkspaces = (settings.workspaces || []).map((w) => {
-      if (w.id === activeWorkspace.id) {
-        return {
-          ...w,
-          path: derived.rootPath,
-          notesPath: derived.notesPath,
-          mediaPath: derived.mediaPath,
-          backupPath: derived.backupPath,
-        };
-      }
-      return w;
-    });
-
-    onUpdateSettings({
-      ...settings,
-      storagePath: derived.notesPath,
-      mediaStoragePath: derived.mediaPath,
-      backupPath: derived.backupPath,
-      workspaces: updatedWorkspaces,
-    });
-    onShowToast('已恢复系统规范路径配置', 'info');
-  };
-
-  // Batch Export execution
-  const handleExecuteBatchExport = () => {
-    const notesToExport = notes.filter((n) => selectedNoteIds.has(n.id));
-    if (notesToExport.length === 0) {
-      onShowToast('请至少选择一条笔记进行导出', 'info');
-      return;
-    }
-    const result = exportNotesContent(notesToExport, exportFormat);
-    downloadFile(result.filename, result.content, result.mimeType);
-    onShowToast(`成功批量导出 ${notesToExport.length} 条笔记！`, 'success');
-  };
-
-  const toggleSelectAllExportNotes = () => {
-    if (selectedNoteIds.size === notes.length) {
-      setSelectedNoteIds(new Set());
-    } else {
-      setSelectedNoteIds(new Set(notes.map((n) => n.id)));
-    }
-  };
-
-  const toggleSelectNoteForExport = (id: string) => {
-    const updated = new Set(selectedNoteIds);
-    if (updated.has(id)) {
-      updated.delete(id);
-    } else {
-      updated.add(id);
-    }
-    setSelectedNoteIds(updated);
-  };
-
-  // Compute statistics
-  const totalNotes = notes.length;
-  const totalWords = notes.reduce((acc, n) => acc + n.content.trim().length, 0);
-  const totalTags = new Set(notes.flatMap((n) => n.tags)).size;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col h-[88vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900 shrink-0">
-          <div className="flex items-center gap-2.5 text-slate-800 dark:text-zinc-100 font-bold text-base">
-            <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/40">
-              <Settings className="w-5 h-5" />
-            </div>
-            <span>系统设置中心</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Main Content (Left Sidebar + Right Tab Panel) */}
-        <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden">
-          {/* Left Vertical Navigation Sidebar */}
-          <div className="w-full sm:w-60 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-200/80 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/50 p-3 flex sm:flex-col gap-1.5 overflow-x-auto sm:overflow-y-auto text-xs custom-scrollbar">
-            <button
-              type="button"
-              onClick={() => setActiveTab('editor')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'editor'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Sliders className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>编辑器偏好</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('analytics')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'analytics'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Flame className="w-4 h-4 text-orange-400 shrink-0" />
-                <span>创作热力图与统计</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('batch_export')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'batch_export'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Download className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>批量导出</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('appearance')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'appearance'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Type className="w-4 h-4 text-violet-500 shrink-0" />
-                <span>界面与外观</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('workspaces')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'workspaces'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <FolderKanban className="w-4 h-4 text-blue-500 shrink-0" />
-                <span>本地工作区</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('trash')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'trash'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>回收站</span>
-              </div>
-              {trashNotes.length > 0 && (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                    activeTab === 'trash'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-300'
-                  }`}
-                >
-                  {trashNotes.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('paths')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'paths'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Folder className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>保存路径与备份</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('help')}
-              className={`w-full px-3.5 py-2.5 rounded-xl font-medium flex items-center justify-between gap-2.5 transition-all text-xs text-left shrink-0 ${
-                activeTab === 'help'
-                  ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>帮助与新手引导</span>
-              </div>
-            </button>
-          </div>
-
-          {/* Right Tab Body Content Panel */}
-          <div className="p-6 overflow-y-auto space-y-5 flex-1 text-sm text-slate-700 dark:text-zinc-300 custom-scrollbar">
-          {/* TAB 1: Editor Preferences */}
-          {activeTab === 'editor' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 space-y-1">
-                <h4 className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-indigo-500" />
-                  <span>Typora 所见即所得书写体验说明</span>
-                </h4>
-                <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80 leading-relaxed">
-                  编辑器已全面升级为无缝 Typora 所见即所得模式。当编写 Markdown 标题、列表、加粗、代码块等语法时，按下 Enter 换行或切行即可自动渲染为精致展示排版，再次点击对应段落即可展开源码即时编辑。
-                </p>
-              </div>
-
-              {/* Editor Font Size Adjustment */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">编辑器正文字号</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">调整输入正文时的基础字号呈现</p>
-                </div>
-                <select
-                  value={settings.editorFontSize || 'base'}
-                  onChange={(e) =>
-                    onUpdateSettings({
-                      ...settings,
-                      editorFontSize: e.target.value as 'sm' | 'base' | 'lg' | 'xl',
-                    })
-                  }
-                  className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-700 border border-slate-300 dark:border-zinc-600 text-slate-800 dark:text-zinc-100 rounded-lg shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="sm">小号 (14px)</option>
-                  <option value="base">标准 (16px - 推荐)</option>
-                  <option value="lg">大号 (18px)</option>
-                  <option value="xl">特大号 (20px)</option>
-                </select>
-              </div>
-
-              {/* Auto Save Toggle Switch */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">自动保存功能</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">停止输入后自动将修改写回本地卡片</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onUpdateSettings({
-                      ...settings,
-                      autoSaveEnabled: !(settings.autoSaveEnabled ?? true),
-                    })
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    settings.autoSaveEnabled ?? true ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-zinc-700'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      settings.autoSaveEnabled ?? true ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Auto Save Delay */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">自动保存防抖间隔</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">停止打字后写回本地的等待时长</p>
-                </div>
-                <select
-                  value={settings.autoSaveDelay}
-                  onChange={(e) =>
-                    onUpdateSettings({
-                      ...settings,
-                      autoSaveDelay: Number(e.target.value),
-                    })
-                  }
-                  className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-700 border border-slate-300 dark:border-zinc-600 text-slate-800 dark:text-zinc-100 rounded-lg shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value={1000}>1 秒（实时极速）</option>
-                  <option value={2000}>2 秒（标准推荐）</option>
-                  <option value={5000}>5 秒（流畅稳健）</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: Contribution Heatmap & Analytics */}
-          {activeTab === 'analytics' && (
-            <div className="space-y-5">
-              {/* Heatmap Section */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/80 dark:border-zinc-800">
-                <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 mb-3 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-emerald-500" />
-                  <span>创作热力图 (Contribution Heatmap)</span>
-                </h4>
-                <ContributionHeatmap notes={notes} onSelectDate={onSelectDateFilter} />
-              </div>
-
-              {/* Statistics Overview Grid */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
-                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">笔记总条数</p>
-                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{totalNotes}</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
-                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">全站总字数</p>
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{totalWords}</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40">
-                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">活跃标签数</p>
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{totalTags}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Batch Export */}
-          {activeTab === 'batch_export' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/80 dark:border-zinc-800 space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200">选择批量导出目标格式</h4>
-                    <p className="text-[11px] text-slate-400 dark:text-zinc-500">将多条笔记合并打包导出为对应文件</p>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs">
-                    {(['md', 'txt', 'html', 'json'] as ExportFormat[]).map((fmt) => (
-                      <button
-                        key={fmt}
-                        onClick={() => setExportFormat(fmt)}
-                        className={`px-3 py-1.5 rounded-lg uppercase font-mono font-bold transition-colors ${
-                          exportFormat === fmt
-                            ? 'bg-indigo-600 text-white shadow-2xs'
-                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
-                        }`}
-                      >
-                        .{fmt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Selection Controls */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 text-xs">
-                  <button
-                    onClick={toggleSelectAllExportNotes}
-                    className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
-                  >
-                    {selectedNoteIds.size === notes.length ? '取消全选' : '全选所有笔记 (' + notes.length + ' 条)'}
-                  </button>
-
-                  <span className="text-slate-500 dark:text-zinc-400">
-                    已勾选 <strong className="text-indigo-600 dark:text-indigo-400">{selectedNoteIds.size}</strong> / {notes.length} 条笔记
-                  </span>
-                </div>
-
-                {/* Note selection checklist */}
-                <div className="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                  {notes.map((n) => (
-                    <label
-                      key={n.id}
-                      className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer text-xs"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedNoteIds.has(n.id)}
-                        onChange={() => toggleSelectNoteForExport(n.id)}
-                        className="w-4 h-4 rounded-md text-indigo-600 border-slate-300 focus:ring-indigo-500"
-                      />
-                      <span className="font-mono text-slate-400 shrink-0">
-                        {new Date(n.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className="truncate flex-1 font-medium text-slate-800 dark:text-zinc-200">
-                        {n.content.slice(0, 50).replace(/\n/g, ' ')}...
-                      </span>
-                    </label>
-                  ))}
-                </div>
-
-                {/* Export execute button */}
-                <button
-                  type="button"
-                  onClick={handleExecuteBatchExport}
-                  disabled={selectedNoteIds.size === 0}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow-2xs transition-colors flex items-center justify-center gap-2 text-xs"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>导出所选 ({selectedNoteIds.size}) 条笔记为 .{exportFormat.toUpperCase()}</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: Appearance & Theme */}
-          {activeTab === 'appearance' && (
-            <div className="space-y-4">
-              {/* Dark / Light / System Theme Options */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800 space-y-3">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">系统外观主题模式</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">
-                    当前处于：{theme === 'dark' ? '深色夜间模式 (Dark)' : '亮色白昼模式 (Light)'}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  {/* Light */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateSettings({ ...settings, themeMode: 'light' });
-                      if (theme === 'dark') onToggleTheme();
-                    }}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-semibold transition-all ${
-                      (settings.themeMode || 'light') === 'light' && theme === 'light'
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-600 dark:text-indigo-300 ring-2 ring-indigo-500/30'
-                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
-                    }`}
-                  >
-                    <Sun className="w-5 h-5 text-amber-500" />
-                    <span>☀️ 亮色白昼</span>
-                  </button>
-
-                  {/* Dark */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateSettings({ ...settings, themeMode: 'dark' });
-                      if (theme === 'light') onToggleTheme();
-                    }}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-semibold transition-all ${
-                      (settings.themeMode || 'light') === 'dark' || theme === 'dark'
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-600 dark:text-indigo-300 ring-2 ring-indigo-500/30'
-                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
-                    }`}
-                  >
-                    <Moon className="w-5 h-5 text-indigo-400" />
-                    <span>🌙 经典夜间</span>
-                  </button>
-
-                  {/* System */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateSettings({ ...settings, themeMode: 'system' });
-                      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                      if ((prefersDark && theme !== 'dark') || (!prefersDark && theme !== 'light')) {
-                        onToggleTheme();
-                      }
-                      onShowToast('已设置为跟随系统主题', 'info');
-                    }}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-semibold transition-all ${
-                      settings.themeMode === 'system'
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-600 dark:text-indigo-300 ring-2 ring-indigo-500/30'
-                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
-                    }`}
-                  >
-                    <Laptop className="w-5 h-5 text-sky-500" />
-                    <span>💻 跟随系统</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Font Family Selection */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">界面排版字体 (Font Family)</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">选择全局笔记与卡片呈现字体</p>
-                </div>
-                <select
-                  value={settings.fontFamily || 'sans'}
-                  onChange={(e) =>
-                    onUpdateSettings({
-                      ...settings,
-                      fontFamily: e.target.value as 'sans' | 'serif' | 'mono',
-                    })
-                  }
-                  className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-700 border border-slate-300 dark:border-zinc-600 text-slate-800 dark:text-zinc-100 rounded-lg shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="sans">现代无衬线 (Sans-Serif)</option>
-                  <option value="serif">优雅衬线体 (Serif)</option>
-                  <option value="mono">极客等宽体 (Monospace)</option>
-                </select>
-              </div>
-
-              {/* Code Block Style Theme */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800 space-y-2">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">默认代码块样式 (Code Block Theme)</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">设置 Markdown 代码块渲染的外观风格 (带 macOS 红黄绿小圆点)</p>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                  {(
-                    [
-                      ['dark-mac', 'macOS 暗黑', 'bg-zinc-900 text-zinc-100 border-zinc-800'],
-                      ['light-mac', 'macOS 纯白', 'bg-slate-100 text-slate-800 border-slate-300'],
-                      ['dracula', 'Dracula 经典', 'bg-[#282a36] text-purple-300 border-purple-900/60'],
-                      ['monokai', 'Monokai 复古', 'bg-[#272822] text-amber-400 border-amber-900/60'],
-                      ['nord', 'Nord 极光北欧', 'bg-[#2e3440] text-sky-300 border-slate-700'],
-                    ] as const
-                  ).map(([cId, cLabel, cStyle]) => {
-                    const isSelected = (settings.codeBlockTheme || 'light-mac') === cId;
-                    return (
-                      <button
-                        key={cId}
-                        type="button"
-                        onClick={() =>
-                          onUpdateSettings({
-                            ...settings,
-                            codeBlockTheme: cId,
-                          })
-                        }
-                        className={`p-2.5 rounded-xl text-left border flex items-center justify-between text-xs font-semibold transition-all ${cStyle} ${
-                          isSelected
-                            ? 'ring-2 ring-indigo-500 shadow-md scale-[1.02]'
-                            : 'opacity-80 hover:opacity-100'
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />
-                          <span>{cLabel}</span>
-                        </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Table Theme Selector */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800 space-y-2">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">默认表格排版主题 (Markdown Table Theme)</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">设置 Markdown 数据表格预设渲染主题</p>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                  {(
-                    [
-                      ['modern-indigo', '靛蓝渐变', 'bg-indigo-600 text-white'],
-                      ['zebra-stripe', '斑马交替纹', 'bg-slate-700 text-slate-100'],
-                      ['minimal-dark', '简约极客黑', 'bg-zinc-950 text-indigo-400'],
-                      ['border-light', '网格边框', 'bg-slate-200 text-slate-800'],
-                      ['emerald-fresh', '翡绿高雅', 'bg-emerald-600 text-white'],
-                      ['amber-warm', '琥珀暖调', 'bg-amber-500 text-white'],
-                    ] as const
-                  ).map(([tId, tLabel, tStyle]) => {
-                    const isSelected = (settings.tableTheme || 'modern-indigo') === tId;
-                    return (
-                      <button
-                        key={tId}
-                        type="button"
-                        onClick={() =>
-                          onUpdateSettings({
-                            ...settings,
-                            tableTheme: tId,
-                          })
-                        }
-                        className={`p-2.5 rounded-xl text-left border border-slate-200 dark:border-zinc-700 flex items-center justify-between text-xs font-semibold transition-all ${tStyle} ${
-                          isSelected
-                            ? 'ring-2 ring-indigo-500 shadow-md scale-[1.02]'
-                            : 'opacity-80 hover:opacity-100'
-                        }`}
-                      >
-                        <span>{tLabel}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Stats Card Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-zinc-200">侧边栏展示每周创作曲线</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">在侧边栏顶部展示每周卡片生成动态</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onUpdateSettings({
-                      ...settings,
-                      showStatsCard: !settings.showStatsCard,
-                    })
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    settings.showStatsCard ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-zinc-700'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      settings.showStatsCard ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: Workspaces / Local Resource Manager */}
-          {activeTab === 'workspaces' && (
-            <div className="space-y-5">
-              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 space-y-1.5">
-                <h4 className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                  <FolderKanban className="w-4 h-4 text-indigo-500" />
-                  <span>本地电脑文件夹工作区</span>
-                </h4>
-                <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80 leading-relaxed">
-                  每个工作区均可独立关联您电脑上的任意本地文件夹。切换工作区时，笔记正文目录 (Notes)、附件媒体 (.src) 与归档备份 (Backups) 将自动同步切换。
-                </p>
-              </div>
-
-              {/* Add New Workspace Form */}
-              {!isAddingWs ? (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingWs(true)}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-2xs transition-all active:scale-98"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  <span>选择本地电脑文件夹 / 新建关联工作区</span>
-                </button>
-              ) : (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 space-y-3.5 animate-fadeIn">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-zinc-700">
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center gap-1.5">
-                      <FolderPlus className="w-4 h-4 text-indigo-500" />
-                      <span>新建本地关联工作区</span>
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingWs(false)}
-                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
-                        工作区名称 *
-                      </label>
-                      <input
-                        type="text"
-                        value={newWsName}
-                        onChange={(e) => setNewWsName(e.target.value)}
-                        placeholder="例如: 🚀 架构设计与灵感库 / 📔 个人生活日记"
-                        className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1 flex items-center justify-between">
-                        <span>本地电脑工作根路径</span>
-                        <span className="text-[10px] text-indigo-500 font-normal">支持原生目录选择器</span>
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newWsPath}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setNewWsPath(val);
-                            if (val.trim()) {
-                              const derived = deriveSubPaths(val.trim());
-                              setNewWsNotesPath(derived.notesPath);
-                              setNewWsMediaPath(derived.mediaPath);
-                              setNewWsBackupPath(derived.backupPath);
-                            }
-                          }}
-                          placeholder="例如: ~/Documents/FloveNote/Work 或 D:/Notes/Work"
-                          className="flex-1 px-3 py-2 text-xs font-mono bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={handlePickLocalFolderForNewWs}
-                          className="px-3 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-semibold shrink-0 transition-colors flex items-center gap-1.5"
-                        >
-                          <FolderOpen className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>选择本地文件夹</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Expandable Advanced Sub-paths for New Workspace */}
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setShowAdvancedWsPaths(!showAdvancedWsPaths)}
-                        className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 mb-2"
-                      >
-                        <Sliders className="w-3 h-3" />
-                        <span>{showAdvancedWsPaths ? '收起自定义子路径配置' : '展开自定义笔记/附件/备份子目录'}</span>
-                      </button>
-
-                      {showAdvancedWsPaths && (
-                        <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-2 text-xs">
-                          <div>
-                            <span className="text-[10px] text-slate-500 font-medium">📁 笔记正文子目录 (Notes):</span>
-                            <input
-                              type="text"
-                              value={newWsNotesPath}
-                              onChange={(e) => setNewWsNotesPath(e.target.value)}
-                              placeholder="默认: [工作区路径]/Notes"
-                              className="w-full mt-0.5 px-2.5 py-1.5 text-[11px] font-mono bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg"
-                            />
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 font-medium">🖼️ 附件媒体子目录 (.src / Assets):</span>
-                            <input
-                              type="text"
-                              value={newWsMediaPath}
-                              onChange={(e) => setNewWsMediaPath(e.target.value)}
-                              placeholder="默认: [工作区路径]/.src"
-                              className="w-full mt-0.5 px-2.5 py-1.5 text-[11px] font-mono bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg"
-                            />
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 font-medium">📦 归档备份子目录 (Backups):</span>
-                            <input
-                              type="text"
-                              value={newWsBackupPath}
-                              onChange={(e) => setNewWsBackupPath(e.target.value)}
-                              placeholder="默认: [工作区路径]/Backups"
-                              className="w-full mt-0.5 px-2.5 py-1.5 text-[11px] font-mono bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
-                        简短说明 (可选)
-                      </label>
-                      <input
-                        type="text"
-                        value={newWsDesc}
-                        onChange={(e) => setNewWsDesc(e.target.value)}
-                        placeholder="例如: 专门存储项目架构设计与思路日记"
-                        className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-200/80 dark:border-zinc-700">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingWs(false)}
-                      className="px-3.5 py-1.5 text-xs text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-xl transition-colors"
-                    >
-                      取消
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCreateWorkspace}
-                      className="px-4 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-2xs transition-colors"
-                    >
-                      保存并立即切换
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Workspaces List */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                  已关联的工作区列表 ({(settings.workspaces || []).length})
-                </h4>
-
-                <div className="space-y-2">
-                  {(settings.workspaces || []).map((ws) => {
-                    const isActive = (settings.activeWorkspaceId || 'default') === ws.id;
-                    const wsNotesCount = notes.filter(
-                      (n) => !n.deletedAt && (n.workspaceId === ws.id || (!n.workspaceId && ws.id === 'default'))
-                    ).length;
-
-                    return (
-                      <div
-                        key={ws.id}
-                        className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                          isActive
-                            ? 'bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800 shadow-2xs'
-                            : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 truncate min-w-0">
-                          <div className={`p-2 rounded-xl shrink-0 ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
-                            <Folder className="w-4 h-4" />
-                          </div>
-
-                          <div className="truncate">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-800 dark:text-zinc-100 text-xs">
-                                {ws.name}
-                              </span>
-                              {isActive && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-600 text-white">
-                                  当前活跃
-                                </span>
-                              )}
-                              <span className="text-[11px] text-slate-400 dark:text-zinc-500">
-                                ({wsNotesCount} 篇笔记)
-                              </span>
-                            </div>
-
-                            <p className="text-[11px] font-mono text-slate-400 dark:text-zinc-500 truncate mt-0.5">
-                              根目录: {ws.path}
-                            </p>
-                            <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-                              <span>📁 笔记: {ws.notesPath || `${ws.path}/Notes`}</span>
-                              <span>🖼️ 附件: {ws.mediaPath || `${ws.path}/.src`}</span>
-                              <span>📦 备份: {ws.backupPath || `${ws.path}/Backups`}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!isActive ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onUpdateSettings({
-                                  ...settings,
-                                  activeWorkspaceId: ws.id,
-                                  storagePath: ws.notesPath || `${ws.path}/Notes`,
-                                  mediaStoragePath: ws.mediaPath || `${ws.path}/.src`,
-                                  backupPath: ws.backupPath || `${ws.path}/Backups`,
-                                });
-                                if (onSwitchWorkspace) onSwitchWorkspace(ws.id);
-                                onShowToast(`已切换至工作区: ${ws.name}`, 'success');
-                              }}
-                              className="px-3 py-1.5 text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-xl transition-colors"
-                            >
-                              切换
-                            </button>
-                          ) : null}
-
-                          {ws.id !== 'default' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const filtered = (settings.workspaces || []).filter((w) => w.id !== ws.id);
-                                const nextActive = isActive ? 'default' : settings.activeWorkspaceId;
-                                onUpdateSettings({
-                                  ...settings,
-                                  workspaces: filtered,
-                                  activeWorkspaceId: nextActive,
-                                });
-                                if (onDeleteWorkspace) onDeleteWorkspace(ws.id);
-                                onShowToast(`已移除工作区 "${ws.name}"`, 'info');
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                              title="移除此工作区"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: Trash / Recycle Bin */}
-          {activeTab === 'trash' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/40 flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
-                    <Trash2 className="w-4 h-4 text-rose-500" />
-                    <span>回收站保留机制说明</span>
-                  </h4>
-                  <p className="text-xs text-rose-700/80 dark:text-rose-300/80 leading-relaxed">
-                    被删除的随记笔记将暂存在回收站中保留 <strong>7 天</strong>，在此期间你可以随时一键恢复。超过 7 天的随记将被系统自动安全清理。
-                  </p>
-                </div>
-
-                {trashNotes.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onEmptyTrash) onEmptyTrash();
-                      else onShowToast('已清空回收站', 'info');
-                    }}
-                    className="px-3 py-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-xl text-xs font-semibold shrink-0 shadow-2xs transition-colors flex items-center gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>清空回收站</span>
-                  </button>
-                )}
-              </div>
-
-              {trashNotes.length === 0 ? (
-                <div className="p-12 text-center rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-800">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 mx-auto mb-3">
-                    <Trash2 className="w-6 h-6" />
-                  </div>
-                  <h4 className="font-bold text-slate-700 dark:text-zinc-300 text-sm mb-1">
-                    回收站空空如也
-                  </h4>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">
-                    暂无任何删除的随记笔记。
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  <div className="text-xs font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
-                    回收站笔记 ({trashNotes.length} 条)
-                  </div>
-
-                  <div className="space-y-2">
-                    {trashNotes.map((note) => {
-                      const daysRemaining = note.deletedAt
-                        ? Math.max(1, 7 - Math.floor((Date.now() - note.deletedAt) / (1000 * 60 * 60 * 24)))
-                        : 7;
-
-                      return (
-                        <div
-                          key={note.id}
-                          className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-slate-300 transition-colors"
-                        >
-                          <div className="truncate min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1 text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
-                              <span className="text-rose-500 font-semibold">
-                                还剩 {daysRemaining} 天自动清除
-                              </span>
-                              <span>·</span>
-                              <span>删除于: {formatFriendlyTime(note.deletedAt || note.updatedAt)}</span>
-                            </div>
-                            <p className="text-xs font-medium text-slate-800 dark:text-zinc-200 truncate">
-                              {note.content.slice(0, 80).replace(/\n/g, ' ')}...
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (onRestoreNote) onRestoreNote(note.id);
-                                else onShowToast('已恢复笔记', 'success');
-                              }}
-                              className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-100 rounded-xl transition-colors flex items-center gap-1"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              <span>恢复</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (onPermanentDeleteNote) onPermanentDeleteNote(note.id);
-                                else onShowToast('已彻底删除', 'info');
-                              }}
-                              className="px-3 py-1.5 text-xs font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 hover:bg-rose-100 rounded-xl transition-colors flex items-center gap-1"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>彻底删除</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {/* TAB: Paths & Storage Configuration */}
-          {activeTab === 'paths' && (
-            <div className="space-y-4">
-              {/* Primary Working Root Card */}
-              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-100">
-                      电脑本地工作主路径 ({activeWorkspace.name})
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-full">
-                    本地电脑文件夹联动
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
-                  点击下方按钮选择您电脑上的任意本地文件夹。系统将以此目录为基准，自动联动生成并修改<strong>笔记正文目录 (Notes)</strong>、<strong>媒体附件目录 (.src)</strong> 与 <strong>全量备份目录 (Backups)</strong>。
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={rootWorkingFolder}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setRootWorkingFolder(val);
-                      if (val.trim()) {
-                        const derived = deriveSubPaths(val.trim());
-                        setStoragePath(derived.notesPath);
-                        setMediaStoragePath(derived.mediaPath);
-                        setBackupPath(derived.backupPath);
-                      }
-                    }}
-                    placeholder="~/Documents/FloveNote"
-                    className="flex-1 px-3 py-2 text-xs font-mono bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handlePickRootWorkingFolder}
-                    className="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-2xs transition-colors flex items-center justify-center gap-1.5 shrink-0 active:scale-98"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    <span>选择电脑本地文件夹</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Sub-paths Detailed Customization */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800 space-y-4">
-                <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-zinc-700/60">
-                  <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>子路径明细与独立修改</span>
-                  </h4>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                    可单独自定义三项目录名称与存储位置
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {/* Notes Path */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Folder className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>1. 笔记正文工作目录 (Notes Storage)</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400">存为 .md 原生 Markdown 文件</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={storagePath}
-                      onChange={(e) => setStoragePath(e.target.value)}
-                      placeholder="例如: ~/Documents/FloveNote/Notes"
-                      className="w-full px-3 py-1.5 text-xs font-mono bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  {/* Media / Assets Path */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Folder className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>2. 媒体附件存储目录 (.src / Assets)</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400">存放笔记中粘贴上传的本地图片与资源</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={mediaStoragePath}
-                      onChange={(e) => setMediaStoragePath(e.target.value)}
-                      placeholder="例如: ~/Documents/FloveNote/.src"
-                      className="w-full px-3 py-1.5 text-xs font-mono bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  {/* Backups Path */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Folder className="w-3.5 h-3.5 text-amber-500" />
-                        <span>3. 归档备份存放路径 (Backups & Snapshots)</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400">存放完整全量 JSON 备份与版本快照</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={backupPath}
-                      onChange={(e) => setBackupPath(e.target.value)}
-                      placeholder="例如: ~/Documents/FloveNote/Backups"
-                      className="w-full px-3 py-1.5 text-xs font-mono bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-slate-200/60 dark:border-zinc-700/60 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={handleResetPaths}
-                    className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 underline"
-                  >
-                    重置为系统规范路径 (~/Documents/FloveNote)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSavePaths}
-                    className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-2xs transition-colors"
-                  >
-                    保存路径配置
-                  </button>
-                </div>
-              </div>
-
-              {/* Real Local Sync & Import Actions */}
-              <div className="p-4 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-xs text-slate-800 dark:text-zinc-100 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>本地文件夹即时写入与双向同步</span>
-                  </p>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    支持直接写入本地磁盘
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                  可以直接将当前工作区所有笔记导出并写入所选的本地电脑文件夹（自动归类生成 <code>Notes/</code>、<code>.src/</code> 与 <code>Backups/</code>），或从该文件夹扫描载入现有 Markdown 笔记。
-                </p>
-
-                <div className="flex flex-wrap gap-2.5 pt-1">
-                  <button
-                    type="button"
-                    disabled={isSyncing}
-                    onClick={handleSyncToLocalFolder}
-                    className="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-xl shadow-2xs transition-colors flex items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>{isSyncing ? '正在写入本地文件夹...' : '⚡ 立即写入/同步至本地文件夹'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isImportingFromDir}
-                    onClick={handleImportFromLocalFolder}
-                    className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700 rounded-xl transition-colors flex items-center gap-1.5"
-                  >
-                    <Upload className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>{isImportingFromDir ? '正在读取本地笔记...' : '📥 从本地文件夹扫描导入笔记'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Full JSON Backup & Restore Data */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-800 space-y-3">
-                <p className="font-semibold text-xs text-slate-800 dark:text-zinc-200">全量 JSON 数据备份与还原</p>
-                <p className="text-xs text-slate-400 dark:text-zinc-500">直接导出全量 JSON 或从已有 JSON 文件恢复所有笔记与标签</p>
-
-                <div className="flex items-center gap-3 pt-1">
-                  {onExportBackup && (
-                    <button
-                      type="button"
-                      onClick={onExportBackup}
-                      className="px-3.5 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-900 rounded-xl hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>导出 JSON 全量备份</span>
-                    </button>
-                  )}
-
-                  {onImportBackup && (
-                    <label className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-200 bg-slate-200/80 dark:bg-zinc-700/80 border border-slate-300 dark:border-zinc-600 rounded-xl hover:bg-slate-300 dark:hover:bg-zinc-600 transition-colors flex items-center gap-1.5 cursor-pointer">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>导入 JSON 备份恢复</span>
-                      <input type="file" accept=".json" onChange={onImportBackup} className="hidden" />
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              {/* Sample Data Reset */}
-              <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-xs text-slate-800 dark:text-zinc-200">恢复系统初始示例数据</p>
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">重置笔记库为初始精选示例集</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm('确定要恢复系统初始示例笔记吗？此操作将覆盖现有内容。')) {
-                      onResetSampleData();
-                      onShowToast('已成功重置示例数据！', 'success');
-                    }
-                  }}
-                  className="px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-800 rounded-xl hover:bg-amber-200 transition-colors"
-                >
-                  重置示例数据
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: Help & Onboarding Guide */}
-          {activeTab === 'help' && (
-            <div className="space-y-6">
-              {/* Tour trigger hero banner */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 text-white shadow-lg space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-indigo-200" />
-                    <h4 className="font-bold text-sm">FloveNote 新手极速上手学习导览</h4>
-                  </div>
-                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono font-semibold">
-                    Interactive Tour
-                  </span>
-                </div>
-                <p className="text-xs text-indigo-100 leading-relaxed">
-                  想要快速掌握 Typora 实时渲染与 KaTeX 公式、双链网状知识库 `[[标题]]`、动态标签云、本地电脑物理目录绑定、7 色卡片导出与全局命令面板等核心黑科技？点击下方按钮开启 8 步交互导览！
-                </p>
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowHelpTour(true)}
-                    className="px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 font-bold rounded-xl text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer active:scale-95"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>启动 8 步交互导览 Tour</span>
-                  </button>
-                  {onImportAllCaseDocuments && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onImportAllCaseDocuments();
-                        onClose();
-                      }}
-                      className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-300" />
-                      <span>一键导入全套实战案例</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Case Documents Interactive Reader */}
-              <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl border border-slate-200/80 dark:border-zinc-700/80 p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-200 dark:border-zinc-700">
-                  <div className="flex items-center gap-2">
-                    <Bookmark className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-zinc-100">
-                      实战案例文档库 (Case Studies & Best Practices)
-                    </h4>
-                  </div>
-                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
-                    精选 4 篇深度排版实战范例，支持实时预览与一键导入
-                  </span>
-                </div>
-
-                {/* Case Selector Pills */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {SAMPLE_CASE_DOCUMENTS.map((doc) => {
-                    const isSelected = selectedCaseId === doc.id;
-                    return (
-                      <button
-                        key={doc.id}
-                        type="button"
-                        onClick={() => setSelectedCaseId(doc.id)}
-                        className={`p-2.5 text-left rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                          isSelected
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20 ring-2 ring-indigo-400/40'
-                            : 'bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-indigo-300 dark:hover:border-indigo-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-base">{doc.icon}</span>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono font-semibold ${
-                              isSelected
-                                ? 'bg-white/20 text-white'
-                                : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'
-                            }`}
-                          >
-                            {doc.badge}
-                          </span>
-                        </div>
-                        <p className={`font-semibold text-xs truncate ${isSelected ? 'text-white' : 'text-slate-800 dark:text-zinc-200'}`}>
-                          {doc.title.replace(/^[^\s]+\s*/, '')}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Current Active Case Document Box */}
-                {(() => {
-                  const currentDoc =
-                    SAMPLE_CASE_DOCUMENTS.find((d) => d.id === selectedCaseId) || SAMPLE_CASE_DOCUMENTS[0];
-                  return (
-                    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200/90 dark:border-zinc-700/90 overflow-hidden shadow-xs">
-                      {/* Document Header Bar */}
-                      <div className="p-3.5 bg-slate-100/70 dark:bg-zinc-800/80 border-b border-slate-200 dark:border-zinc-700 flex flex-wrap items-center justify-between gap-2">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                              {currentDoc.title}
-                            </span>
-                            <span className="text-[10px] px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 rounded-full font-semibold border border-indigo-200 dark:border-indigo-800">
-                              {currentDoc.category}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                            {currentDoc.tagline}
-                          </p>
-                        </div>
-
-                        {/* Action Buttons for Document */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(currentDoc.content);
-                              onShowToast('案例文档 Markdown 源码已复制到剪贴板！', 'success');
-                            }}
-                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg border border-slate-200 dark:border-zinc-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-                            title="复制 Markdown 源码"
-                          >
-                            <Copy className="w-3.5 h-3.5 text-slate-500" />
-                            <span>复制源码</span>
-                          </button>
-
-                          {onImportCaseDocument && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onImportCaseDocument(currentDoc);
-                                onClose();
-                              }}
-                              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-xs flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
-                              title="将此案例文档添加到当前工作区笔记列表"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>导入此案例到笔记</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Live Rendered Content */}
-                      <div className="p-4 max-h-72 overflow-y-auto custom-scrollbar bg-white dark:bg-zinc-900">
-                        <MarkdownRenderer content={currentDoc.content} />
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Quick Feature Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 space-y-1.5">
-                  <p className="font-bold text-slate-800 dark:text-zinc-100 text-xs flex items-center gap-1.5">
-                    <span className="p-1 rounded-lg bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">✍️</span>
-                    <span>Typora 渲染 & KaTeX 公式</span>
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                    实时 Markdown 美化，支持 `$E=mc^2$` 与积分矩阵公式、代码高亮和待办清单。
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 space-y-1.5">
-                  <p className="font-bold text-slate-800 dark:text-zinc-100 text-xs flex items-center gap-1.5">
-                    <span className="p-1 rounded-lg bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400">🔗</span>
-                    <span>双向链接 (`[[标题]]`)</span>
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                    双括号原子关联，卡片底部智能呈现反向引用出处，构建个人第二大脑。
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 space-y-1.5">
-                  <p className="font-bold text-slate-800 dark:text-zinc-100 text-xs flex items-center gap-1.5">
-                    <span className="p-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">☁️</span>
-                    <span>动态标签云 & 管理</span>
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                    正文 `#标签` 自动归类，字号动态映射热度，支持拖拽打标与一键合并/清空。
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 space-y-1.5">
-                  <p className="font-bold text-slate-800 dark:text-zinc-100 text-xs flex items-center gap-1.5">
-                    <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400">📁</span>
-                    <span>本地电脑工作区绑定</span>
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                    直连电脑硬盘目录，Notes/`.src`/Backups 三层映射，与 Obsidian 100% 互通。
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 space-y-1.5">
-                  <p className="font-bold text-slate-800 dark:text-zinc-100 text-xs flex items-center gap-1.5">
-                    <span className="p-1 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400">🎨</span>
-                    <span>7 色长图 & 矢量 PDF</span>
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                    一键生成高赞社交卡片长图复制到微信/小红书，或导出高清免打印 PDF。
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 space-y-1.5">
-                  <p className="font-bold text-slate-800 dark:text-zinc-100 text-xs flex items-center gap-1.5">
-                    <span className="p-1 rounded-lg bg-cyan-100 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-400">⚡</span>
-                    <span>全局命令面板 (Cmd+K)</span>
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                    秒级呼出命令搜索、全屏专注模式、写作打卡热力图与毫秒级历史时光机。
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-xs">
+      {writePreview && <WritePreviewModal plan={writePreview.plan} onClose={() => setWritePreview(null)} onConfirm={async () => {
+        if (JSON.stringify(notes) !== JSON.stringify(writePreview.plan.sourceNotes)) return '笔记内容在预览后发生变化，请取消后重新预览。';
+        const stats = await syncWorkspaceToDirectoryHandle(writePreview.handle, writePreview.plan.sourceNotes, undefined, writePreview.plan);
+        if (!stats.success) return stats.error || '写入失败，请重新预览。';
+        onWorkspaceSynced?.();
+        onShowToast(`已写入 ${stats.notesCount} 篇笔记，生成备份 ${stats.backupFileName}`, 'success');
+        setWritePreview(null);
+        return null;
+      }} />}
+
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="系统设置" tabIndex={-1} className="sn-settings-dialog w-full max-w-4xl h-[88vh] flex flex-col overflow-hidden border shadow-xl">
+      <header className="p-5 flex justify-between border-b"><h2>设置</h2><button aria-label="关闭设置" onClick={onClose}><X size={20}/></button></header>
+      <div className="flex flex-col md:flex-row flex-1 min-h-0">
+        <nav aria-label="设置分类" className="sn-settings-tabs p-3 flex md:flex-col gap-2 overflow-auto md:w-44 shrink-0 border-b md:border-r">
+          {([['editor','编辑与阅读'],['appearance','外观'],['workspaces','工作区'],['paths','文件夹存储'],['backups','备份与恢复'],['trash','回收站'],['help','使用帮助']] as const).map(([id,label]) => <button key={id} className={`sn-nav-item whitespace-nowrap ${activeTab===id?'is-active':''}`} aria-current={activeTab===id?'page':undefined} onClick={()=>setActiveTab(id)}>{label}</button>)}
+        </nav>
+        <section className="sn-settings-content p-5 flex-1 overflow-y-auto space-y-5 min-w-0">
+        {activeTab==='editor' && <>
+          <h3>编辑与阅读</h3>
+          <label className="sn-field">正文字号<select aria-label="正文字号" value={settings.editorFontSize||'base'} onChange={e=>onUpdateSettings({...settings,editorFontSize:e.target.value as AppSettings['editorFontSize']})}>{[['sm','小号'],['base','标准'],['lg','大号'],['xl','特大']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+          <label className="sn-field">阅读字体<select aria-label="阅读字体" value={settings.fontFamily==='serif'?'serif':'sans'} onChange={e=>onUpdateSettings({...settings,fontFamily:e.target.value as 'sans'|'serif'})}><option value="sans">标准</option><option value="serif">衬线</option></select></label>
+          <p className="sn-reading-preview">阅读预览：留住一闪而过的想法。The quiet joy of writing.</p>
+          <label className="sn-check-label"><input type="checkbox" checked={settings.autoSaveEnabled!==false} onChange={e=>onUpdateSettings({...settings,autoSaveEnabled:e.target.checked})}/>自动保存</label>
+          <details><summary>高级编辑偏好</summary><label className="sn-field">停止输入后的保存间隔<select aria-label="停止输入后的保存间隔" value={settings.autoSaveDelay} onChange={e=>onUpdateSettings({...settings,autoSaveDelay:Number(e.target.value)})}>{[1000,2000,3000,5000].map(v=><option key={v} value={v}>{v/1000} 秒</option>)}</select></label><label className="sn-check-label"><input type="checkbox" checked={!!settings.autoFoldLongNotes} onChange={e=>onUpdateSettings({...settings,autoFoldLongNotes:e.target.checked})}/>折叠长笔记</label></details>
+          <p className="sn-caption">自动保存保护正文；每次编辑会话保留起始版本，最多保存 50 个历史版本。</p>
+        </>}
+        {activeTab==='appearance' && <><h3>外观</h3>{desktopInfo&&<div className="sn-setting-card"><h4>Windows 桌面版 · {desktopInfo.version}</h4><p>数据位置：{desktopInfo.dataPath}</p><button className="sn-primary" disabled={shortcutBusy} onClick={createShortcut}>{shortcutBusy?'正在创建…':'创建桌面快捷方式'}</button><p className="sn-caption">仅在点击后创建；免安装版请先将 EXE 放到固定位置。</p></div>}<label className="sn-field">显示模式<select aria-label="显示模式" value={settings.themeMode||'light'} onChange={e=>onUpdateSettings({...settings,themeMode:e.target.value as AppSettings['themeMode']})}><option value="light">浅色</option><option value="dark">深色</option><option value="system">跟随系统</option></select></label><p>代码块与表格自动适配明暗模式。代码保留语法高亮、语言标识和复制。</p><p className="sn-caption">导出卡片的极简白、暖纸和深色样式可在导出预览中选择。</p></>}
+        {activeTab==='workspaces' && <><h3>工作区</h3><p className="sn-caption">工作区是笔记的分类空间，是否绑定磁盘文件夹可单独设置。</p>{(settings.workspaces||[]).map(w=><div className="sn-setting-card" key={w.id}><strong>{w.name}</strong><span>{workspaceCounts[w.id]||0} 条笔记</span>{w.id===activeWorkspace.id?<span>当前工作区</span>:<button className="sn-text-button" onClick={()=>onSwitchWorkspace?.(w.id)}>切换</button>}{w.id!=='default'&&<button className="sn-text-button" onClick={()=>{if(window.confirm('移除此工作区？请先确认其中的笔记已迁移或备份。'))onDeleteWorkspace?.(w.id);}}>移除工作区</button>}</div>)}<label className="sn-field">新工作区名称<input value={newWsName} maxLength={60} onChange={e=>setNewWsName(e.target.value)}/></label><button className="sn-primary" disabled={!newWsName.trim()} onClick={handleCreateWorkspace}>创建工作区</button></>}
+        {activeTab==='paths' && <><h3>文件夹存储 · {activeWorkspace.name}</h3><p>笔记首先保存在浏览器中，文件夹需要授权并手动写入。刷新后需要重新授权。</p><div className="sn-setting-card"><p>授权状态：{currentDirHandle?'本次会话已授权':'尚未授权'}</p><p>本工作区最近写入记录：{lastWriteAt?new Date(lastWriteAt).toLocaleString():'暂无记录'}</p><p>文件夹：{currentDirHandle?.name||'尚未选择'}</p></div><button className="sn-primary" onClick={handlePickRootWorkingFolder}>选择或重新授权文件夹</button><div className="flex flex-wrap gap-3"><button className="sn-text-button" disabled={isSyncing||isImportingFromDir} onClick={handleSyncToLocalFolder}>预览并写入文件夹</button><button className="sn-text-button" disabled={isSyncing||isImportingFromDir} onClick={handleImportFromLocalFolder}>扫描导入 Markdown</button></div><details><summary>高级目录设置</summary><p className="sn-caption">路径为结构示意；写入使用末级目录名。实际文件夹以浏览器授权为准。</p>{[['笔记目录',storagePath,setStoragePath],['图片目录',mediaStoragePath,setMediaStoragePath],['备份目录',backupPath,setBackupPath]].map(([label,value,setter])=><label className="sn-field" key={String(label)}>{String(label)}<input value={String(value)} onChange={e=>(setter as (v:string)=>void)(e.target.value)}/></label>)}<button className="sn-text-button" onClick={handleSavePaths}>保存目录配置</button></details></>}
+        {activeTab==='backups' && <><h3>备份与恢复</h3><p>全量备份包含所有工作区的笔记、历史、笔记内图片和界面偏好；不包含 API 密钥及独立图片资源库。</p><p role="status">最近发起全量备份：{lastBackupAt?new Date(lastBackupAt).toLocaleString():'暂无记录'}</p><p className="sn-caption">下载由浏览器完成，请确认文件已保存。这里的时间不表示已验证磁盘文件。</p><button className="sn-primary" onClick={onExportBackup}>下载全量备份 JSON</button><label className="sn-field">导入或恢复备份<input type="file" accept=".json,application/json" onChange={onImportBackup}/></label><p>导入前可预览重复和冲突，选择恢复结构或加入当前工作区。清理浏览器数据前请先备份。</p></>}
+        {activeTab==='trash' && <><h3>回收站</h3><p>恢复笔记或确认永久删除。建议定期备份。</p>{trashNotes.map(n=><div className="sn-setting-card" key={n.id}><p>{n.content.slice(0,100)||'空白笔记'}</p><button className="sn-text-button" onClick={()=>onRestoreNote?.(n.id)}>恢复</button><button className="sn-text-button" onClick={()=>{if(window.confirm('永久删除这条笔记？此操作不可恢复。'))onPermanentDeleteNote?.(n.id);}}>永久删除</button></div>)}{!trashNotes.length&&<p>回收站为空。</p>}</>}
+        {activeTab==='help' && <><h3>开始记录</h3><ol className="list-decimal pl-5 space-y-3"><li>在首页写下想法，点击“记下”；用 #标签 分类。</li><li>完整编辑器支持 Markdown、源码和实时预览；Ctrl / ⌘ + Enter 保存。</li><li>搜索可与标签和日期组合，并保存为常用筛选。</li><li>内容导出用于阅读和分享，全量备份用于迁移和恢复。</li></ol><h4>从一个模板开始</h4><div className="flex flex-wrap gap-3">{NOTE_TEMPLATES.map(t=><button className="sn-text-button" key={t.name} onClick={()=>{onOpenTemplate?.(t.content);onClose();}}>{t.name}</button>)}</div><p className="sn-caption">模板只打开草稿，保存前不会添加笔记。更多技术说明见项目 README。</p></>}
+        </section>
       </div>
-
-        {/* Onboarding Help Tour Modal */}
-        <OnboardingHelpModal
-          isOpen={showHelpTour}
-          onClose={() => setShowHelpTour(false)}
-          onShowToast={onShowToast}
-        />
-
-        {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-200/80 dark:border-zinc-800 flex justify-end shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-2xs transition-colors"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>完成并关闭</span>
-          </button>
-        </div>
-      </div>
+      <footer className="p-4 border-t text-right"><button className="sn-primary" onClick={onClose}>完成</button></footer>
     </div>
-  );
+  </div>;
 };

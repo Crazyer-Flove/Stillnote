@@ -1,3 +1,4 @@
+import type { Note } from '../types';
 // Utilities for managing local `.src/` image folder storage and resolution
 
 const SRC_FOLDER_STORAGE_KEY = 'flovenote_local_src_folder';
@@ -115,4 +116,12 @@ export function getAllLocalSrcImages(): { relativePath: string; dataUrl: string 
   } catch {
     return [];
   }
+}
+
+/** Embed referenced browser-stored images so backups can travel to another browser. */
+export function portableNotes(notes: Note[]): Note[] {
+  const embed = (content: string) => content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
+    (match, alt: string, url: string) => url.includes('.src/') ? `![${alt}](${resolveSrcImageUrl(url)})` : match);
+  return notes.map(note => ({ ...note, content: embed(note.content),
+    history: note.history?.map(snapshot => ({ ...snapshot, content: embed(snapshot.content) })) }));
 }

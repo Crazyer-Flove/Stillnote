@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React, { useState } from 'react';
 import { X, Search, Smile, Briefcase, Sparkles, Heart, Hash, Check } from 'lucide-react';
 
@@ -70,6 +71,7 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
   const [activeCategory, setActiveCategory] = useState<string>('常用与表情');
   const [copiedIcon, setCopiedIcon] = useState<string | null>(null);
 
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen) return null;
 
   const handlePick = (emoji: string) => {
@@ -88,7 +90,7 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
   }).filter((g) => g.emojis.length > 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="选择图标" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-zinc-900/80">
@@ -99,7 +101,7 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
             </h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={onClose} aria-label="关闭窗口"
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800"
           >
             <X className="w-4 h-4" />

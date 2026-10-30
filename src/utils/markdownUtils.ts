@@ -1,3 +1,4 @@
+import { portableNotes } from './imageStorage';
 import { Note, ExportFormat } from '../types';
 
 /**
@@ -152,8 +153,8 @@ export function exportNotesContent(notes: Note[], format: ExportFormat): { filen
 
   if (format === 'json') {
     return {
-      filename: `FloveNote_Backup_${timestamp}.json`,
-      content: JSON.stringify(notes, null, 2),
+      filename: `Stillnote_Backup_${timestamp}.json`,
+      content: JSON.stringify(portableNotes(notes), null, 2),
       mimeType: 'application/json',
     };
   }
@@ -166,7 +167,7 @@ export function exportNotesContent(notes: Note[], format: ExportFormat): { filen
     }).join('\n');
 
     return {
-      filename: `FloveNote_Export_${timestamp}.txt`,
+      filename: `Stillnote_Export_${timestamp}.txt`,
       content: textContent,
       mimeType: 'text/plain',
     };
@@ -191,20 +192,20 @@ export function exportNotesContent(notes: Note[], format: ExportFormat): { filen
 <html>
 <head>
   <meta charset="utf-8">
-  <title>FloveNote Notes Export</title>
+  <title>Stillnote Notes Export</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #111827; background: #fafafa; }
     h1 { font-size: 24px; font-weight: 700; margin-bottom: 24px; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
   </style>
 </head>
 <body>
-  <h1>FloveNote 笔记导出 (${notes.length} 条)</h1>
+  <h1>Stillnote 笔记导出 (${notes.length} 条)</h1>
   ${htmlBody}
 </body>
 </html>`;
 
     return {
-      filename: `FloveNote_Export_${timestamp}.html`,
+      filename: `Stillnote_Export_${timestamp}.html`,
       content: fullHtml,
       mimeType: 'text/html',
     };
@@ -218,7 +219,7 @@ export function exportNotesContent(notes: Note[], format: ExportFormat): { filen
   }).join('\n\n');
 
   return {
-    filename: `FloveNote_Export_${timestamp}.md`,
+    filename: `Stillnote_Export_${timestamp}.md`,
     content: mdContent,
     mimeType: 'text/markdown',
   };

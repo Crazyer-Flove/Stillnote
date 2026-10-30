@@ -1,37 +1,42 @@
+import { normalizePreferences } from './product';
 import { Note, AppSettings, Workspace } from '../types';
 import { extractTags } from './markdownUtils';
 
 const STORAGE_KEY = 'flovenote_notes_v1';
+let storageReadError = false;
+export const hasStorageReadError = () => storageReadError;
+export const getRawNotesBackup = () => localStorage.getItem(STORAGE_KEY) || '[]';
+
 const THEME_KEY = 'flovenote_theme';
 
 export const DEFAULT_WORKSPACES: Workspace[] = [
   {
     id: 'default',
     name: '默认工作区',
-    path: '~/Documents/FloveNote/Default',
-    notesPath: '~/Documents/FloveNote/Default/Notes',
-    mediaPath: '~/Documents/FloveNote/Default/.src',
-    backupPath: '~/Documents/FloveNote/Default/Backups',
+    path: '~/Documents/Stillnote/Default',
+    notesPath: '~/Documents/Stillnote/Default/Notes',
+    mediaPath: '~/Documents/Stillnote/Default/.src',
+    backupPath: '~/Documents/Stillnote/Default/Backups',
     description: '系统主笔记与生活随记库',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
   },
   {
     id: 'work',
     name: '工作与项目',
-    path: '~/Documents/FloveNote/Work',
-    notesPath: '~/Documents/FloveNote/Work/Notes',
-    mediaPath: '~/Documents/FloveNote/Work/.src',
-    backupPath: '~/Documents/FloveNote/Work/Backups',
+    path: '~/Documents/Stillnote/Work',
+    notesPath: '~/Documents/Stillnote/Work/Notes',
+    mediaPath: '~/Documents/Stillnote/Work/.src',
+    backupPath: '~/Documents/Stillnote/Work/Backups',
     description: '职业工作纪要、项目待办与架构笔记',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 15,
   },
   {
     id: 'study',
     name: '研习与灵感',
-    path: '~/Documents/FloveNote/Study',
-    notesPath: '~/Documents/FloveNote/Study/Notes',
-    mediaPath: '~/Documents/FloveNote/Study/.src',
-    backupPath: '~/Documents/FloveNote/Study/Backups',
+    path: '~/Documents/Stillnote/Study',
+    notesPath: '~/Documents/Stillnote/Study/Notes',
+    mediaPath: '~/Documents/Stillnote/Study/.src',
+    backupPath: '~/Documents/Stillnote/Study/Backups',
     description: '读书笔记、论文摘要与创意灵感',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 7,
   },
@@ -60,15 +65,18 @@ export function getStoredNotes(): Note[] {
       return INITIAL_SAMPLE_NOTES;
     }
     const parsed = JSON.parse(raw);
-    const loadedNotes = Array.isArray(parsed) ? parsed : INITIAL_SAMPLE_NOTES;
+    if (!Array.isArray(parsed) || !parsed.every(note => note && typeof note.content === 'string' && Array.isArray(note.tags))) throw new Error('Invalid notes');
+    const loadedNotes = parsed;
     return cleanupExpiredTrashNotes(loadedNotes);
   } catch (err) {
+    storageReadError = true;
     console.error('Failed to load notes from localStorage:', err);
     return INITIAL_SAMPLE_NOTES;
   }
 }
 
 export function saveNotesToStorage(notes: Note[]): boolean {
+  if (storageReadError) return false;
   try {
     const cleanedNotes = cleanupExpiredTrashNotes(notes);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanedNotes));
@@ -84,16 +92,19 @@ const SETTINGS_KEY = 'flovenote_settings_v1';
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultEditorMode: 'typora',
   codeBlockTheme: 'light-mac',
-  showStatsCard: true,
+  tableTheme: 'border-light',
+  fontFamily: 'sans',
+  showStatsCard: false,
   autoSaveDelay: 3000,
   sidebarWidth: 260,
   isSidebarCollapsed: false,
-  storagePath: '~/Documents/FloveNote/Notes',
-  mediaStoragePath: '~/Documents/FloveNote/.src',
-  backupPath: '~/Documents/FloveNote/Backups',
+  storagePath: '~/Documents/Stillnote/Notes',
+  mediaStoragePath: '~/Documents/Stillnote/.src',
+  backupPath: '~/Documents/Stillnote/Backups',
   activeWorkspaceId: 'default',
   workspaces: DEFAULT_WORKSPACES,
-  themeMode: 'system',
+  themeMode: 'light',
+  designVersion: 1,
 };
 
 export function getStoredSettings(): AppSettings {
@@ -101,7 +112,7 @@ export function getStoredSettings(): AppSettings {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    return normalizePreferences({ ...DEFAULT_SETTINGS, ...parsed, ...(parsed.designVersion ? {} : { themeMode: 'light', designVersion: 1 }) });
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -212,4 +223,25 @@ export function deleteAllTagsFromNotes(notes: Note[]): Note[] {
 
 function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Commit notes and workspace settings together, rolling back on write failure. */
+export function saveLibraryToStorage(notes: Note[], settings: AppSettings): boolean {
+  if (storageReadError) return false;
+  let oldNotes: string | null, oldSettings: string | null;
+  try { oldNotes = localStorage.getItem(STORAGE_KEY); oldSettings = localStorage.getItem(SETTINGS_KEY); }
+  catch { return false; }
+  try {
+    const notesJson = JSON.stringify(cleanupExpiredTrashNotes(notes));
+    const settingsJson = JSON.stringify(settings);
+    localStorage.setItem(STORAGE_KEY, notesJson);
+    localStorage.setItem(SETTINGS_KEY, settingsJson);
+    return true;
+  } catch {
+    try {
+      if (oldNotes === null) localStorage.removeItem(STORAGE_KEY); else localStorage.setItem(STORAGE_KEY, oldNotes);
+      if (oldSettings === null) localStorage.removeItem(SETTINGS_KEY); else localStorage.setItem(SETTINGS_KEY, oldSettings);
+    } catch { console.error('恢复写入失败，请从已导出的备份检查数据。'); }
+    return false;
+  }
 }

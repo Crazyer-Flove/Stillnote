@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import { useDialog } from '../hooks/useDialog';
+import React, { useState, useRef, useEffect } from 'react';
 import { Note, CardThemeId, CodeBlockThemeId, TableThemeId } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { formatFriendlyTime, calculateTextStats } from '../utils/markdownUtils';
@@ -43,7 +44,7 @@ interface CardThemeOption {
 const CARD_THEMES: CardThemeOption[] = [
   {
     id: 'minimalist',
-    name: '极简流光',
+    name: '极简白',
     previewBg: 'bg-stone-100 border-stone-300',
     cardBg: 'bg-white border border-stone-200/90 shadow-xl text-stone-800',
     textColor: 'text-stone-800',
@@ -51,58 +52,22 @@ const CARD_THEMES: CardThemeOption[] = [
     badgeBg: 'bg-stone-100 text-stone-700 border border-stone-200',
   },
   {
-    id: 'sunset',
-    name: '日落霞光',
-    previewBg: 'bg-gradient-to-r from-amber-400 to-rose-500',
-    cardBg: 'bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100 border border-amber-200/80 shadow-2xl text-slate-800',
-    textColor: 'text-slate-800',
-    accentColor: 'text-rose-600 border-rose-500',
-    badgeBg: 'bg-rose-100/90 text-rose-800 border border-rose-200',
-  },
-  {
     id: 'midnight',
-    name: '深邃夜空',
+    name: '深色',
     previewBg: 'bg-zinc-900 border-zinc-700',
-    cardBg: 'bg-gradient-to-br from-zinc-950 via-slate-900 to-zinc-900 text-zinc-100 border border-zinc-800 shadow-2xl',
+    cardBg: 'bg-[#20251e] text-zinc-100 border border-zinc-800 shadow-2xl',
     textColor: 'text-zinc-100',
     accentColor: 'text-indigo-400 border-indigo-500',
     badgeBg: 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/60',
   },
   {
     id: 'parchment',
-    name: '复古羊皮纸',
+    name: '暖纸',
     previewBg: 'bg-amber-100 border-amber-300',
     cardBg: 'bg-[#fdf8ed] text-[#3d2f26] border border-[#e6d7c3] shadow-xl',
     textColor: 'text-[#3d2f26]',
     accentColor: 'text-[#8c5222] border-[#8c5222]',
     badgeBg: 'bg-[#f2e3d0] text-[#6e4623] border border-[#e2cfb9]',
-  },
-  {
-    id: 'polaroid',
-    name: '拍立得画框',
-    previewBg: 'bg-slate-200 border-slate-400',
-    cardBg: 'bg-white p-8 border-4 border-slate-100 shadow-2xl ring-1 ring-slate-200/80 text-slate-800',
-    textColor: 'text-slate-800',
-    accentColor: 'text-indigo-600 border-indigo-600',
-    badgeBg: 'bg-slate-100 text-slate-700 border border-slate-200',
-  },
-  {
-    id: 'mint',
-    name: '清新薄荷',
-    previewBg: 'bg-emerald-100 border-emerald-300',
-    cardBg: 'bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-100 border border-emerald-200/80 shadow-xl text-teal-950',
-    textColor: 'text-teal-950',
-    accentColor: 'text-emerald-600 border-emerald-600',
-    badgeBg: 'bg-emerald-100/90 text-emerald-800 border border-emerald-200',
-  },
-  {
-    id: 'lavender' as any,
-    name: '梦幻薰衣草',
-    previewBg: 'bg-purple-200 border-purple-400',
-    cardBg: 'bg-gradient-to-br from-purple-50 via-indigo-50 to-pink-100 border border-purple-200/80 shadow-xl text-purple-950',
-    textColor: 'text-purple-950',
-    accentColor: 'text-purple-600 border-purple-500',
-    badgeBg: 'bg-purple-100/90 text-purple-800 border border-purple-200',
   },
 ];
 
@@ -114,21 +79,25 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
   codeBlockTheme,
   tableTheme,
 }) => {
-  const [selectedTheme, setSelectedTheme] = useState<CardThemeId>('minimalist');
-  const [authorName, setAuthorName] = useState('FloveNote 随想');
-  const [showWatermark, setShowWatermark] = useState(true);
-  const [showDate, setShowDate] = useState(true);
-  const [showStats, setShowStats] = useState(true);
-  const [showTags, setShowTags] = useState(true);
+  const [previous] = useState(() => {try {const p=JSON.parse(localStorage.getItem('stillnote_export_preferences')||'{}');return p&&typeof p==='object'?p:{};}catch{return {};}});
+  const [selectedTheme, setSelectedTheme] = useState<CardThemeId>(CARD_THEMES.some(t=>t.id===previous.theme)?previous.theme:'minimalist');
+  const [authorName, setAuthorName] = useState(typeof previous.author==='string'?previous.author.slice(0,100):'Stillnote 随想');
+  const [showWatermark, setShowWatermark] = useState(typeof previous.watermark==='boolean'?previous.watermark:true);
+  const [showDate, setShowDate] = useState(typeof previous.date==='boolean'?previous.date:true);
+  const [showStats, setShowStats] = useState(typeof previous.stats==='boolean'?previous.stats:true);
+  const [showTags, setShowTags] = useState(typeof previous.tags==='boolean'?previous.tags:true);
   const [statMode, setStatMode] = useState<'cleanChars' | 'words' | 'rawLength'>('cleanChars');
-  const [cardFontSize, setCardFontSize] = useState<'compact' | 'standard' | 'large'>('standard');
-  const [cardWidth, setCardWidth] = useState<'standard' | 'wide'>('standard');
+  const [cardFontSize, setCardFontSize] = useState<'compact' | 'standard' | 'large'>(['compact','standard','large'].includes(previous.fontSize)?previous.fontSize:'standard');
+  const [cardWidth, setCardWidth] = useState<'standard' | 'wide'>(previous.width==='wide'?'wide':'standard');
   const [isExporting, setIsExporting] = useState(false);
   const [exportType, setExportType] = useState<'image' | 'pdf' | null>(null);
   const [customFilename, setCustomFilename] = useState('');
+  const [chooseSaveLocation, setChooseSaveLocation] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
 
+  useEffect(()=>{try{localStorage.setItem('stillnote_export_preferences',JSON.stringify({theme:selectedTheme,author:authorName,watermark:showWatermark,date:showDate,stats:showStats,tags:showTags,fontSize:cardFontSize,width:cardWidth}));}catch{/* Export itself remains available if browser preference storage is full. */}},[selectedTheme,authorName,showWatermark,showDate,showStats,showTags,cardFontSize,cardWidth]);
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen || !note) return null;
 
   const currentTheme = CARD_THEMES.find((t) => t.id === selectedTheme) || CARD_THEMES[0];
@@ -203,10 +172,10 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
       const timeStr = new Date(note.createdAt).toISOString().slice(0, 10);
       const suggestedName = customFilename.trim()
         ? (customFilename.endsWith('.png') ? customFilename : `${customFilename}.png`)
-        : `FloveNote_${timeStr}_${note.id.slice(0, 6)}.png`;
+        : `Stillnote_${timeStr}_${note.id.slice(0, 6)}.png`;
 
       // 1. Try native File System Access API if supported
-      if ('showSaveFilePicker' in window) {
+      if (chooseSaveLocation && 'showSaveFilePicker' in window) {
         try {
           const handle = await (window as any).showSaveFilePicker({
             suggestedName,
@@ -270,20 +239,21 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
       const ptHeight = (pxHeight * 0.75) / 2.5;
 
       const pdf = new jsPDF({
+        compress: true,
         orientation: ptWidth > ptHeight ? 'landscape' : 'portrait',
         unit: 'pt',
         format: [ptWidth + 32, ptHeight + 32], // exact fit card with neat padding
       });
 
-      pdf.addImage(dataUrl, 'PNG', 16, 16, ptWidth, ptHeight);
+      pdf.addImage(dataUrl, 'PNG', 16, 16, ptWidth, ptHeight, undefined, 'FAST');
 
       const timeStr = new Date(note.createdAt).toISOString().slice(0, 10);
       const pdfSuggestedName = customFilename.trim()
         ? (customFilename.endsWith('.pdf') ? customFilename : `${customFilename}.pdf`)
-        : `FloveNote_${timeStr}_${note.id.slice(0, 6)}.pdf`;
+        : `Stillnote_${timeStr}_${note.id.slice(0, 6)}.pdf`;
 
       // Try showSaveFilePicker if available
-      if ('showSaveFilePicker' in window) {
+      if (chooseSaveLocation && 'showSaveFilePicker' in window) {
         try {
           const handle = await (window as any).showSaveFilePicker({
             suggestedName: pdfSuggestedName,
@@ -356,7 +326,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="导出分享卡片" tabIndex={-1} className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-zinc-900">
@@ -367,7 +337,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
             </h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={onClose} aria-label="关闭窗口"
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800"
           >
             <X className="w-5 h-5" />
@@ -375,7 +345,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
         </div>
 
         {/* Content Layout */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
+        <div className="sn-export-layout flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
           {/* Controls Sidebar (Left) */}
           <div className="md:col-span-4 p-5 border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/50 overflow-y-auto space-y-5 text-xs custom-scrollbar">
             {/* Theme Selector */}
@@ -409,6 +379,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
               </div>
             </div>
 
+            <details><summary>高级导出设置</summary>
             {/* Layout & Font controls */}
             <div className="space-y-3 pt-2 border-t border-slate-200/80 dark:border-zinc-800">
               <label className="block font-medium text-slate-700 dark:text-zinc-300">
@@ -418,7 +389,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                 <div>
                   <span className="text-slate-500 dark:text-zinc-400 block mb-1">卡片宽度</span>
                   <select
-                    value={cardWidth}
+                    aria-label="卡片宽度" value={cardWidth}
                     onChange={(e) => setCardWidth(e.target.value as any)}
                     className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 text-xs"
                   >
@@ -429,7 +400,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                 <div>
                   <span className="text-slate-500 dark:text-zinc-400 block mb-1">正文字号</span>
                   <select
-                    value={cardFontSize}
+                    aria-label="导出字号" value={cardFontSize}
                     onChange={(e) => setCardFontSize(e.target.value as any)}
                     className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 text-xs"
                   >
@@ -451,9 +422,9 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                 <span className="text-slate-500 dark:text-zinc-400 block mb-1">署名 / 标题</span>
                 <input
                   type="text"
-                  value={authorName}
+                  aria-label="导出署名" value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}
-                  placeholder="如：FloveNote 随想"
+                  placeholder="如：Stillnote 随想"
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -462,17 +433,22 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                 <span className="text-slate-500 dark:text-zinc-400 block mb-1">自定义文件名</span>
                 <input
                   type="text"
-                  value={customFilename}
+                  aria-label="导出文件名" value={customFilename}
                   onChange={(e) => setCustomFilename(e.target.value)}
                   placeholder="如: 每日随想笔记"
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono"
                 />
               </div>
 
+              {'showSaveFilePicker' in window && <label className="flex items-center gap-2 text-slate-600 dark:text-zinc-300">
+                <input type="checkbox" checked={chooseSaveLocation} onChange={event => setChooseSaveLocation(event.target.checked)} />
+                手动选择保存位置
+              </label>}
+
               <div>
                 <span className="text-slate-500 dark:text-zinc-400 block mb-1">字数统计模式</span>
                 <select
-                  value={statMode}
+                  aria-label="字数统计模式" value={statMode}
                   onChange={(e) => setStatMode(e.target.value as any)}
                   className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 text-xs"
                 >
@@ -520,18 +496,20 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                     onChange={(e) => setShowWatermark(e.target.checked)}
                     className="rounded text-indigo-600 accent-indigo-600"
                   />
-                  <span>显示 FloveNote 底部水印</span>
+                  <span>显示 Stillnote 底部水印</span>
                 </label>
               </div>
             </div>
+            </details>
           </div>
 
           {/* Card Preview Area (Right) */}
-          <div className="md:col-span-8 p-6 bg-slate-200/60 dark:bg-zinc-950 overflow-y-auto flex items-center justify-center custom-scrollbar">
+          <div className="md:col-span-8 p-6 bg-slate-200/60 dark:bg-zinc-950 overflow-y-auto flex items-start justify-center custom-scrollbar">
             {/* The actual element captured by html-to-image */}
             <div
               ref={cardRef}
-              className={`w-full ${getCardWidthClass()} p-7 rounded-2xl transition-none overflow-visible ${currentTheme.cardBg}`}
+              id="note-export-card-print" data-card-theme={selectedTheme}
+              className={`sn-export-card w-full ${getCardWidthClass()} p-7 rounded-2xl transition-none overflow-visible ${currentTheme.cardBg}`}
             >
               {/* Card Header Badge */}
               <div className="flex items-center justify-between pb-4 mb-4 border-b border-black/10 dark:border-white/10">
@@ -540,7 +518,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                     <Feather className="w-4 h-4 stroke-[2.5]" />
                   </div>
                   <div>
-                    <div className="font-bold text-sm leading-none">{authorName || 'FloveNote'}</div>
+                    <div className="font-bold text-sm leading-none">{authorName || 'Stillnote'}</div>
                     {showDate && (
                       <div className="text-[11px] opacity-75 mt-1 flex items-center gap-1 font-mono">
                         <Calendar className="w-3 h-3" />
@@ -562,7 +540,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                 <MarkdownRenderer
                   content={note.content}
                   isInteractive={false}
-                  codeBlockTheme={codeBlockTheme}
+                  codeBlockTheme={selectedTheme==='midnight'?'dark-mac':'light-mac'}
                   tableTheme={tableTheme}
                   className={selectedTheme === 'midnight' ? 'dark' : ''}
                 />
@@ -587,7 +565,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                 <div className="pt-5 mt-3 flex items-center justify-between text-[10px] opacity-65 border-t border-dashed border-black/10 dark:border-white/10 font-mono">
                   <span className="flex items-center gap-1">
                     <Sparkles className="w-3 h-3 text-indigo-500" />
-                    <span>记录生活与思考 · FloveNote</span>
+                    <span>记录生活与思考 · Stillnote</span>
                   </span>
                   <span>{formatFriendlyTime(note.createdAt)}</span>
                 </div>
@@ -597,10 +575,10 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-3.5 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end shrink-0">
+        <div className="sn-export-actions px-6 py-3.5 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end shrink-0">
           <div className="flex items-center gap-2">
             <button
-              onClick={onClose}
+              onClick={onClose} aria-label="关闭窗口"
               className="px-4 py-2 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl text-xs font-medium"
             >
               取消

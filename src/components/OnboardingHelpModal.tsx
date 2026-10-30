@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React, { useState } from 'react';
 import {
   X,
@@ -33,6 +34,7 @@ export const OnboardingHelpModal: React.FC<OnboardingHelpModalProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
+  const dialogRef = useDialog(isOpen, onClose);
   if (!isOpen) return null;
 
   const steps = [
@@ -42,13 +44,13 @@ export const OnboardingHelpModal: React.FC<OnboardingHelpModalProps> = ({
       icon: <FileText className="w-6 h-6 text-indigo-500" />,
       color: 'from-indigo-500 to-blue-500',
       description:
-        'FloveNote 支持极简 Markdown 实时渲染。输入 # 标题、*斜体*、**粗体**、- [ ] 交互式待办任务列表，以及 $E=mc^2$ 与多行矩阵数学公式，即可即时美化呈现。',
+        'Stillnote 支持极简 Markdown 实时渲染。输入 # 标题、*斜体*、**粗体**、- [ ] 交互式待办任务列表，以及 $E=mc^2$ 与多行矩阵数学公式，即可即时美化呈现。',
       highlights: [
         '即时渲染标题、多语言代码高亮与 KaTeX 数学公式',
         '交互式待办任务项，点击复选框即时更新正文状态',
         '支持 Ctrl+B/I/Z/Y 等经典编辑器快捷键',
       ],
-      codeSample: '# 欢迎体验 FloveNote\n- [x] 极简时间轴记录\n$$ \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi} $$',
+      codeSample: '# 欢迎体验 Stillnote\n- [x] 极简时间轴记录\n$$ \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi} $$',
     },
     {
       title: '双向链接网状知识库 (`[[双链]]`)',
@@ -84,7 +86,7 @@ export const OnboardingHelpModal: React.FC<OnboardingHelpModalProps> = ({
       icon: <HardDrive className="w-6 h-6 text-amber-500" />,
       color: 'from-amber-500 to-orange-500',
       description:
-        '通过浏览器原生 File System Access API 直连电脑任意物理目录（如 ~/Documents/FloveNote），自动映射 Notes 正文、.src/ 媒体资源与 Backups 快照目录。',
+        '通过浏览器原生 File System Access API 直连电脑任意物理目录（如 ~/Documents/Stillnote），自动映射 Notes 正文、.src/ 媒体资源与 Backups 快照目录。',
       highlights: [
         '直连本地物理文件夹，一键即时同步写入磁盘与扫描导入',
         '图片媒体自动存储至 .src/ 相对路径，与 Obsidian / Typora 100% 互通',
@@ -168,7 +170,7 @@ export const OnboardingHelpModal: React.FC<OnboardingHelpModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="新手帮助" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[92vh]">
         {/* Top Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-900 shrink-0">
@@ -183,7 +185,7 @@ export const OnboardingHelpModal: React.FC<OnboardingHelpModalProps> = ({
                   {currentStep + 1} / {steps.length}
                 </span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">掌握 FloveNote 核心效率黑科技</p>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">掌握 Stillnote 核心效率黑科技</p>
             </div>
           </div>
           <button

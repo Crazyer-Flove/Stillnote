@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React, { useState, useEffect } from 'react';
 import { Note } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -47,6 +48,7 @@ export const FocusModeModal: React.FC<FocusModeModalProps> = ({
   onBiLinkClick,
   onShowToast,
 }) => {
+  const dialogRef = useDialog(true, onClose);
   const [copied, setCopied] = useState(false);
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg' | 'xl'>('base');
   const [contentWidth, setContentWidth] = useState<'normal' | 'wide' | 'full'>('normal');
@@ -59,9 +61,8 @@ export const FocusModeModal: React.FC<FocusModeModalProps> = ({
   // Listen to keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if (e.key === 'ArrowLeft' && prevNote) {
+      if (document.activeElement?.closest('[role=dialog]') !== dialogRef.current) return;
+      if (e.key === 'ArrowLeft' && prevNote) {
         onSelectNote(prevNote);
       } else if (e.key === 'ArrowRight' && nextNote) {
         onSelectNote(nextNote);
@@ -100,7 +101,7 @@ export const FocusModeModal: React.FC<FocusModeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col overflow-hidden animate-fadeIn select-text">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="专注阅读" tabIndex={-1} className="fixed inset-0 z-50 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col overflow-hidden animate-fadeIn select-text">
       {/* Top Navigation & Toolbar Header */}
       <header className="h-14 px-6 border-b border-slate-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-between shrink-0 z-10">
         {/* Left Controls */}
@@ -313,7 +314,7 @@ export const FocusModeModal: React.FC<FocusModeModalProps> = ({
       {/* Footer Hotkey Indicator */}
       <footer className="px-6 py-2 bg-white/50 dark:bg-zinc-900/50 border-t border-slate-200/60 dark:border-zinc-800/60 text-center text-[11px] text-slate-400 dark:text-zinc-500 font-mono flex items-center justify-between shrink-0">
         <span>键盘快捷键：[Esc] 退出专注阅读 | [← / →] 切换前后笔记</span>
-        <span>FloveNote 专注阅读模式</span>
+        <span>Stillnote 专注阅读模式</span>
       </footer>
     </div>
   );

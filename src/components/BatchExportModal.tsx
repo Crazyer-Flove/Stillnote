@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useDialog } from '../hooks/useDialog';
+import { parseLibraryBackup } from '../utils/backup';
 import { Note, ExportFormat } from '../types';
 import { exportNotesContent, downloadFile } from '../utils/markdownUtils';
 import { Download, FileText, Code, FileCode, CheckSquare, Square, X, Upload } from 'lucide-react';
@@ -7,17 +9,20 @@ interface BatchExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   notes: Note[];
-  onImportBackup?: (importedNotes: Note[]) => void;
+  onOpenBackups?: () => void;
+  onImportBackup?: (value: unknown) => void;
 }
 
 export const BatchExportModal: React.FC<BatchExportModalProps> = ({
   isOpen,
   onClose,
   notes,
-  onImportBackup,
+  onImportBackup, onOpenBackups,
 }) => {
+  const dialogRef = useDialog(isOpen, onClose);
   const [selectedIds, setSelectedIds] = useState<string[]>(notes.map((n) => n.id));
   const [format, setFormat] = useState<ExportFormat>('md');
+  const [advanced,setAdvanced] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -49,31 +54,10 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
     onClose();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].content) {
-          onImportBackup?.(parsed);
-          onClose();
-        } else {
-          setImportError('读取失败：JSON 备份文件格式不符合 FloveNote 数据规范');
-        }
-      } catch (err) {
-        setImportError('JSON 解析错误：请确保选择正确的 FloveNote 备份文件');
-      }
-    };
-    reader.readAsText(file);
-  };
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-xl w-full border border-stone-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="导出内容" tabIndex={-1} className="bg-white dark:bg-zinc-900 rounded-2xl max-w-xl w-full border border-stone-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-zinc-800">
           <div className="flex items-center gap-2">
@@ -81,12 +65,12 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
               <Download className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900 dark:text-zinc-100">批量导出与备份导入</h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">勾选笔记导出为 MD、TXT、HTML 或 JSON 完整数据包</p>
+              <h3 className="font-semibold text-slate-900 dark:text-zinc-100">导出内容</h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">导出当前筛选结果中的笔记；完整备份请前往“备份与恢复”。</p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={onClose} aria-label="关闭导出窗口"
             className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800"
           >
             <X className="w-5 h-5" />
@@ -103,8 +87,8 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
               { id: 'md', label: 'Markdown (.md)', icon: FileText },
               { id: 'txt', label: '纯文本 (.txt)', icon: FileCode },
               { id: 'html', label: '网页 (.html)', icon: Code },
-              { id: 'json', label: '备份 (.json)', icon: Download },
-            ].map((fmt) => {
+
+            ].filter(fmt=>advanced||fmt.id==='md').map((fmt) => {
               const Icon = fmt.icon;
               const isSelected = format === fmt.id;
               return (
@@ -125,6 +109,7 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
           </div>
         </div>
 
+        <div className="px-6 py-3 flex flex-wrap gap-4 text-xs"><button onClick={()=>{setAdvanced(!advanced);if(advanced)setFormat('md');}}>{advanced?'收起高级格式':'高级格式：TXT / HTML'}</button><button onClick={()=>{onClose();onOpenBackups?.();}}>备份与恢复（全部工作区）</button></div>
         {/* Note List Selection */}
         <div className="p-6 overflow-y-auto flex-1 space-y-2">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-zinc-800 text-xs font-medium text-slate-500 dark:text-zinc-400">
@@ -182,23 +167,6 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
                 </div>
               );
             })
-          )}
-        </div>
-
-        {/* Restore / Import Option */}
-        <div className="px-6 py-3 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-950/40 flex items-center justify-between text-xs">
-          <label className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer font-medium">
-            <Upload className="w-3.5 h-3.5" />
-            <span>从 JSON 备份导入恢复...</span>
-            <input
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-          </label>
-          {importError && (
-            <span className="text-rose-500 text-[11px]">{importError}</span>
           )}
         </div>
 

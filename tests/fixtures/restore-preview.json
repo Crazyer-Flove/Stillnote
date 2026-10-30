@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "notes": [
+    {
+      "id": "fixture-a",
+      "content": "功能验收：恢复工作区与去重 #验收",
+      "tags": [
+        "验收"
+      ],
+      "createdAt": 1793232000000,
+      "updatedAt": 1793232000000,
+      "isPinned": false,
+      "isFavorite": false,
+      "workspaceId": "fixture-space"
+    },
+    {
+      "id": "fixture-a",
+      "content": "功能验收：恢复工作区与去重 #验收",
+      "tags": [
+        "验收"
+      ],
+      "createdAt": 1793232000000,
+      "updatedAt": 1793232000000,
+      "isPinned": false,
+      "isFavorite": false,
+      "workspaceId": "fixture-space"
+    },
+    {
+      "id": "fixture-a",
+      "content": "功能验收：同 ID 的不同正文",
+      "tags": [
+        "验收"
+      ],
+      "createdAt": 1793232000000,
+      "updatedAt": 1793232000000,
+      "isPinned": false,
+      "isFavorite": false,
+      "workspaceId": "fixture-space"
+    }
+  ],
+  "settings": {
+    "workspaces": [
+      {
+        "id": "fixture-space",
+        "name": "功能验收工作区",
+        "path": "",
+        "createdAt": 1793232000000
+      }
+    ],
+    "activeWorkspaceId": "fixture-space",
+    "autoSaveDelay": 2000
+  }
+}

@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { sessionHistory, applyBatchChange } from './utils/product';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { Note, FilterState, ViewMode, ThemeMode, ToastMessage, NoteHistory, AppSettings } from './types';
 import {
   getStoredNotes,
+  hasStorageReadError,
+  getRawNotesBackup,
   saveNotesToStorage,
+  saveLibraryToStorage,
   getStoredTheme,
   saveThemeToStorage,
   getStoredSettings,
@@ -14,26 +18,42 @@ import {
   deleteAllTagsFromNotes,
 } from './utils/storage';
 import { extractTags, getIsoWeekString, getMonthString, exportNotesContent, downloadFile } from './utils/markdownUtils';
-import { SAMPLE_CASE_DOCUMENTS, convertCaseItemToNote, CaseDocumentItem } from './utils/caseDocuments';
+import { createLibraryBackup, parseLibraryBackup, LibraryBackup } from './utils/backup';
+import { inWorkspace } from './utils/workspace';
 import { Sidebar } from './components/Sidebar';
 import { TimelineFeed } from './components/TimelineFeed';
-import { NoteEditorModal } from './components/NoteEditorModal';
-import { TagManagerModal } from './components/TagManagerModal';
-import { TagCloudModal } from './components/TagCloudModal';
-import { BatchExportModal } from './components/BatchExportModal';
-import { ResourceManagerModal } from './components/ResourceManagerModal';
-import { SettingsModal } from './components/SettingsModal';
-import { FocusModeModal } from './components/FocusModeModal';
-import { NoteExportCardModal } from './components/NoteExportCardModal';
-import { AnalyticsModal } from './components/AnalyticsModal';
-import { SponsorAuthorModal } from './components/SponsorAuthorModal';
-import { CommandPaletteModal } from './components/CommandPaletteModal';
+const ImportBackupModal = lazy(() => import('./components/ImportBackupModal').then(module => ({ default: module.ImportBackupModal })));
+const NoteEditorModal = lazy(() => import('./components/NoteEditorModal').then(module => ({ default: module.NoteEditorModal })));
+const TagManagerModal = lazy(() => import('./components/TagManagerModal').then(module => ({ default: module.TagManagerModal })));
+const TagCloudModal = lazy(() => import('./components/TagCloudModal').then(module => ({ default: module.TagCloudModal })));
+const BatchExportModal = lazy(() => import('./components/BatchExportModal').then(module => ({ default: module.BatchExportModal })));
+const ResourceManagerModal = lazy(() => import('./components/ResourceManagerModal').then(module => ({ default: module.ResourceManagerModal })));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(module => ({ default: module.SettingsModal })));
+const FocusModeModal = lazy(() => import('./components/FocusModeModal').then(module => ({ default: module.FocusModeModal })));
+const NoteExportCardModal = lazy(() => import('./components/NoteExportCardModal').then(module => ({ default: module.NoteExportCardModal })));
+const AnalyticsModal = lazy(() => import('./components/AnalyticsModal').then(module => ({ default: module.AnalyticsModal })));
+const SponsorAuthorModal = lazy(() => import('./components/SponsorAuthorModal').then(module => ({ default: module.SponsorAuthorModal })));
+const CommandPaletteModal = lazy(() => import('./components/CommandPaletteModal').then(module => ({ default: module.CommandPaletteModal })));
 import { ToastContainer } from './components/Toast';
 
 export default function App() {
   const [notes, setNotes] = useState<Note[]>(() => getStoredNotes());
   const [theme, setTheme] = useState<ThemeMode>(() => getStoredTheme());
   const [settings, setSettings] = useState<AppSettings>(() => getStoredSettings());
+
+  const [pendingBackup, setPendingBackup] = useState<LibraryBackup | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const saveFailedRef = useRef(false);
+  const activeWorkspaceId = settings.activeWorkspaceId || 'default';
+  const workspaceNotes = useMemo(() => notes.filter(note => inWorkspace(note, activeWorkspaceId)), [notes, activeWorkspaceId]);
+  const activeNotes = useMemo(() => workspaceNotes.filter(note => !note.deletedAt), [workspaceNotes]);
+  const workspaceCounts = useMemo(() => Object.fromEntries((settings.workspaces || []).map(workspace => [workspace.id, notes.filter(note => !note.deletedAt && inWorkspace(note, workspace.id)).length])), [notes, settings.workspaces]);
+  const [directoryHandles, setDirectoryHandles] = useState<Record<string, any>>({});
+  const [syncedContents, setSyncedContents] = useState<Record<string, string>>({});
+  const appSession = useRef(crypto.randomUUID());
+  const [lastBackupAt, setLastBackupAt] = useState(() => { try { const n=Number(localStorage.getItem('stillnote_last_backup'));return Number.isFinite(n)&&n>0?n:0;}catch{return 0;} });
+  const [writeTimes,setWriteTimes] = useState<Record<string,number>>(() => {try{const v=JSON.parse(localStorage.getItem('stillnote_write_times')||'{}');return Object.fromEntries(Object.entries(v).filter((entry): entry is [string,number]=>typeof entry[1]==='number'&&Number.isFinite(entry[1])));}catch{return {};}});
+
 
   // Notes Operation History Stack (Undo / Redo)
   const [undoStack, setUndoStack] = useState<Note[][]>([]);
@@ -55,6 +75,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('timeline');
 
   // Modal states
+  const [editorSession, setEditorSession] = useState(0);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [initialComposerContent, setInitialComposerContent] = useState('');
@@ -68,7 +89,7 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isResourceManagerOpen, setIsResourceManagerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'editor' | 'analytics' | 'batch_export' | 'appearance' | 'paths' | 'workspaces' | 'trash' | 'help'>('editor');
+  const [settingsTab, setSettingsTab] = useState<'editor' | 'analytics' | 'batch_export' | 'appearance' | 'paths' | 'workspaces' | 'trash' | 'help' | 'backups'>('editor');
   const [isSponsorModalOpen, setIsSponsorModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -77,14 +98,18 @@ export default function App() {
   const updateNotesWithHistory = (
     updater: Note[] | ((prev: Note[]) => Note[])
   ) => {
-    setNotes((prevNotes) => {
-      const nextNotes = typeof updater === 'function' ? updater(prevNotes) : updater;
-      if (JSON.stringify(prevNotes) !== JSON.stringify(nextNotes)) {
-        setUndoStack((stack) => [prevNotes, ...stack].slice(0, 30));
-        setRedoStack([]); // Clear redo stack on new action
-      }
-      return nextNotes;
-    });
+    const prevNotes = notesRef.current;
+    const nextNotes = typeof updater === 'function' ? updater(prevNotes) : updater;
+    if (JSON.stringify(prevNotes) !== JSON.stringify(nextNotes)) {
+      setUndoStack(stack => [prevNotes, ...stack].slice(0, 30));
+      setRedoStack([]);
+    }
+    notesRef.current = nextNotes;
+    setNotes(nextNotes);
+    const saved = saveNotesToStorage(nextNotes);
+    saveFailedRef.current = !saved;
+    setSaveFailed(!saved);
+    return saved;
   };
 
   // Undo Handler
@@ -98,7 +123,9 @@ export default function App() {
 
     setRedoStack((stack) => [notesRef.current, ...stack].slice(0, 30));
     setUndoStack(newUndoStack);
+    notesRef.current=previousSnapshot;
     setNotes(previousSnapshot);
+    const saved=saveNotesToStorage(previousSnapshot);saveFailedRef.current=!saved;setSaveFailed(!saved);
     addToast('已撤销上一步笔记变动 (Command+Z)', 'success');
   };
 
@@ -113,7 +140,9 @@ export default function App() {
 
     setUndoStack((stack) => [notesRef.current, ...stack].slice(0, 30));
     setRedoStack(newRedoStack);
+    notesRef.current=nextSnapshot;
     setNotes(nextSnapshot);
+    const saved=saveNotesToStorage(nextSnapshot);saveFailedRef.current=!saved;setSaveFailed(!saved);
     addToast('已重做笔记变动 (Shift+Command+Z)', 'success');
   };
 
@@ -137,7 +166,7 @@ export default function App() {
             (activeEl as HTMLElement).isContentEditable);
 
         // If user is NOT actively typing in an input field, OR if Shift key is pressed (Redo), run Note Undo/Redo
-        if (!isEditingInInput || e.shiftKey) {
+        if (!isEditingInInput) {
           e.preventDefault();
           if (e.shiftKey) {
             handleRedo();
@@ -168,7 +197,7 @@ export default function App() {
   // Handle Bi-Link Navigation
   const handleBiLinkClick = (title: string) => {
     // Find matching note
-    const target = notes.find((n) => {
+    const target = activeNotes.find((n) => {
       const firstLine = n.content.trim().split('\n')[0].replace(/^#+\s*/, '').trim();
       return firstLine.toLowerCase() === title.toLowerCase();
     });
@@ -187,7 +216,8 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const addToast = (text: string, type: 'success' | 'info' | 'error' = 'info') => {
-    const id = Date.now().toString();
+    if (type === 'success' && saveFailedRef.current) return;
+    const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, text, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -198,13 +228,26 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Sync Notes to LocalStorage
+  // Persist undo/redo too; ordinary mutations persist synchronously before reporting success.
   useEffect(() => {
-    saveNotesToStorage(notes);
+    const saved = saveNotesToStorage(notes);
+    saveFailedRef.current = !saved;
+    setSaveFailed(!saved);
   }, [notes]);
+  useEffect(() => {
+    if (!saveFailed) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [saveFailed]);
+  useEffect(() => {
+    setFilterState({ searchKeyword: '', selectedTag: null, category: 'all', sortBy: 'newest' });
+    setIsEditorOpen(false); setEditingNote(null); setFocusedNote(null);
+  }, [activeWorkspaceId]);
 
   // Sync Theme with Document Class & System Mode
   useEffect(() => {
+    if (settings.themeMode !== 'system') { setTheme(settings.themeMode === 'dark' ? 'dark' : 'light'); return; }
     if (settings.themeMode === 'system') {
       const media = window.matchMedia('(prefers-color-scheme: dark)');
       const updateSystemTheme = (e: MediaQueryListEvent | MediaQueryList) => {
@@ -235,28 +278,8 @@ export default function App() {
   }, [settings]);
 
   const handleResetSampleData = () => {
-    updateNotesWithHistory(INITIAL_SAMPLE_NOTES);
-    saveNotesToStorage(INITIAL_SAMPLE_NOTES);
+    updateNotesWithHistory(notes.filter(note => !inWorkspace(note, activeWorkspaceId)));
     addToast('已重置并清空所有笔记内容', 'info');
-  };
-
-  const handleImportCaseDocument = (item: CaseDocumentItem) => {
-    const currentWs = settings.activeWorkspaceId || 'default';
-    const newNote = convertCaseItemToNote(item, currentWs);
-    updateNotesWithHistory((prev) => [newNote, ...prev]);
-    addToast(`已导入案例文档《${item.title.replace(/^[^\s]+\s*/, '')}》！`, 'success');
-  };
-
-  const handleImportAllCaseDocuments = () => {
-    const currentWs = settings.activeWorkspaceId || 'default';
-    const newNotes = SAMPLE_CASE_DOCUMENTS.map((doc, idx) => {
-      const note = convertCaseItemToNote(doc, currentWs);
-      note.createdAt = Date.now() - idx * 1000 * 60 * 60;
-      note.updatedAt = note.createdAt;
-      return note;
-    });
-    updateNotesWithHistory((prev) => [...newNotes, ...prev]);
-    addToast(`已成功载入全套 ${SAMPLE_CASE_DOCUMENTS.length} 篇实战案例！`, 'success');
   };
 
   const toggleTheme = () => {
@@ -270,7 +293,7 @@ export default function App() {
   // Compute all unique tags with count (excluding trash)
   const allTagInfos = useMemo(() => {
     const tagCountMap = new Map<string, number>();
-    notes.forEach((note) => {
+    workspaceNotes.forEach((note) => {
       if (!note.deletedAt) {
         note.tags.forEach((tag) => {
           tagCountMap.set(tag, (tagCountMap.get(tag) || 0) + 1);
@@ -280,7 +303,7 @@ export default function App() {
     return Array.from(tagCountMap.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
-  }, [notes]);
+  }, [workspaceNotes]);
 
   const allTagNames = useMemo(() => allTagInfos.map((t) => t.name), [allTagInfos]);
 
@@ -288,7 +311,7 @@ export default function App() {
   const filteredNotes = useMemo(() => {
     const activeWsId = settings.activeWorkspaceId || 'default';
 
-    return notes
+    return workspaceNotes
       .filter((note) => {
         // Trash category handling
         if (filterState.category === 'trash') {
@@ -349,7 +372,7 @@ export default function App() {
           ? b.createdAt - a.createdAt
           : a.createdAt - b.createdAt;
       });
-  }, [notes, filterState, settings.activeWorkspaceId]);
+  }, [workspaceNotes, filterState, settings.activeWorkspaceId]);
 
   // CRUD Operations
   const handleCreateNote = (content: string) => {
@@ -367,7 +390,8 @@ export default function App() {
     };
 
     updateNotesWithHistory((prev) => [newNote, ...prev]);
-    addToast('笔记发布成功！', 'success');
+    if (!saveFailedRef.current) addToast('已保存到浏览器', 'success');
+    return !saveFailedRef.current;
   };
 
   const handleSaveEditorNote = (
@@ -378,21 +402,13 @@ export default function App() {
   ) => {
     const extractedTags = extractTags(content);
 
-    if (editingNote) {
+    if (editingNote?.id) {
       // Update existing & create a history snapshot if content changed
       updateNotesWithHistory((prev) =>
         prev.map((n) => {
           if (n.id !== editingNote.id) return n;
 
-          let updatedHistory = n.history || [];
-          if (n.content !== content) {
-            const newSnapshot: NoteHistory = {
-              id: `snap-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-              content: n.content,
-              timestamp: Date.now(),
-            };
-            updatedHistory = [newSnapshot, ...updatedHistory].slice(0, 20); // Keep last 20 snapshots
-          }
+          const updatedHistory = sessionHistory(n, content, `session-${appSession.current}-${editorSession}`);
 
           return {
             ...n,
@@ -407,7 +423,7 @@ export default function App() {
       );
       if (!isAutoSave) {
         addToast('笔记修改已更新（已存为快照）', 'success');
-        setEditingNote(null);
+        if (!saveFailedRef.current) setEditingNote(null);
       }
     } else {
       // Create new
@@ -423,13 +439,18 @@ export default function App() {
         history: [],
       };
       updateNotesWithHistory((prev) => [newNote, ...prev]);
-      if (isAutoSave) {
-        setEditingNote(newNote);
-      } else {
+      setEditingNote(newNote);
+      if (!isAutoSave) {
         addToast('笔记保存成功！', 'success');
-        setEditingNote(null);
+        if (!saveFailedRef.current) setEditingNote(null);
       }
     }
+    if (!saveFailedRef.current && initialComposerContent) {
+      try { localStorage.removeItem(`flovenote_draft_${activeWorkspaceId}`); } catch {}
+      window.dispatchEvent(new CustomEvent('flovenote-composer-saved', { detail: activeWorkspaceId }));
+      setInitialComposerContent('');
+    }
+    return !saveFailedRef.current;
   };
 
   // Move to Trash (Soft Delete)
@@ -460,7 +481,7 @@ export default function App() {
 
   // Empty Trash
   const handleEmptyTrash = () => {
-    updateNotesWithHistory((prev) => prev.filter((n) => !n.deletedAt));
+    updateNotesWithHistory((prev) => prev.filter((n) => !inWorkspace(n, activeWorkspaceId) || !n.deletedAt));
     addToast('已彻底清空回收站所有笔记', 'info');
   };
 
@@ -541,19 +562,19 @@ export default function App() {
 
   // Tag Operations
   const handleRenameTag = (oldTag: string, newTag: string) => {
-    const updated = renameTagInNotes(notes, oldTag, newTag);
+    const updated = notes.map(note => inWorkspace(note, activeWorkspaceId) && !note.deletedAt ? renameTagInNotes([note], oldTag, newTag)[0] : note);
     updateNotesWithHistory(updated);
     addToast(`已重命名标签 #${oldTag} -> #${newTag}`, 'success');
   };
 
   const handleMergeTags = (sourceTag: string, targetTag: string) => {
-    const updated = mergeTagsInNotes(notes, sourceTag, targetTag);
+    const updated = notes.map(note => inWorkspace(note, activeWorkspaceId) && !note.deletedAt ? mergeTagsInNotes([note], sourceTag, targetTag)[0] : note);
     updateNotesWithHistory(updated);
     addToast(`已合并标签 #${sourceTag} 到 #${targetTag}`, 'success');
   };
 
   const handleDeleteTag = (tag: string) => {
-    const updated = deleteTagFromNotes(notes, tag);
+    const updated = notes.map(note => inWorkspace(note, activeWorkspaceId) && !note.deletedAt ? deleteTagFromNotes([note], tag)[0] : note);
     updateNotesWithHistory(updated);
     if (filterState.selectedTag === tag) {
       setFilterState((prev) => ({ ...prev, selectedTag: null }));
@@ -562,7 +583,7 @@ export default function App() {
   };
 
   const handleDeleteAllTags = () => {
-    const updated = deleteAllTagsFromNotes(notes);
+    const updated = notes.map(note => inWorkspace(note, activeWorkspaceId) && !note.deletedAt ? deleteAllTagsFromNotes([note])[0] : note);
     updateNotesWithHistory(updated);
     if (filterState.selectedTag) {
       setFilterState((prev) => ({ ...prev, selectedTag: null }));
@@ -571,14 +592,16 @@ export default function App() {
   };
 
   // Backup Export & Import
-  const handleRestoreNotes = (importedNotes: Note[]) => {
-    updateNotesWithHistory(importedNotes);
-    addToast(`成功恢复 ${importedNotes.length} 条笔记数据！`, 'success');
+  const handleRestoreNotes = (value: unknown) => {
+    try { setPendingBackup(parseLibraryBackup(value)); }
+    catch (error) { addToast((error as Error).message, 'error'); }
   };
 
   const handleExportBackup = () => {
-    const result = exportNotesContent(notes, 'json');
-    downloadFile(result.filename, result.content, result.mimeType);
+    if (hasStorageReadError()) { downloadFile('Stillnote_原始数据.json', getRawNotesBackup(), 'application/json'); return; }
+    const backup = createLibraryBackup(notesRef.current, settings);
+    downloadFile(`Stillnote_FullBackup_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(backup, null, 2), 'application/json');
+    const initiated=Date.now();setLastBackupAt(initiated);try{localStorage.setItem('stillnote_last_backup',String(initiated));}catch{addToast('备份已发起，但备份时间记录保存失败','info');}
     addToast('已导出 JSON 数据全量备份！', 'success');
   };
 
@@ -590,27 +613,27 @@ export default function App() {
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        if (Array.isArray(parsed)) {
-          updateNotesWithHistory(parsed);
-          addToast(`成功恢复 ${parsed.length} 条笔记数据！`, 'success');
-        } else {
-          addToast('备份文件格式不符合要求', 'error');
-        }
+        handleRestoreNotes(parsed);
       } catch (err) {
         addToast('读取 JSON 备份文件失败', 'error');
       }
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Open Editor
   const handleOpenFullEditor = (initialContent?: string) => {
+    try { const pending=JSON.parse(localStorage.getItem(`flovenote_editor_draft_${activeWorkspaceId}_new`)||'null');if(initialContent&&pending?.content?.trim()&&pending.content!==initialContent)addToast('已优先恢复未完成草稿；保存后可再选择新模板。','info'); } catch {}
+
+    setEditorSession(value => value + 1);
     setEditingNote(null);
     setInitialComposerContent(initialContent || '');
     setIsEditorOpen(true);
   };
 
   const handleEditNoteCard = (note: Note) => {
+    setEditorSession(value => value + 1);
     setEditingNote(note);
     setIsEditorOpen(true);
   };
@@ -623,17 +646,18 @@ export default function App() {
       : 'font-sans';
 
   return (
-    <div className={`min-h-screen bg-slate-100/70 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex ${fontFamilyClass} selection:bg-indigo-500/20 selection:text-indigo-600 dark:selection:text-indigo-300`}>
+    <div className={`stillnote-app min-h-screen bg-slate-100/70 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex ${fontFamilyClass} ${settings.fontFamily==='serif'?'sn-reading-serif':'sn-reading-standard'} selection:bg-indigo-500/20 selection:text-indigo-600 dark:selection:text-indigo-300`}>
       {/* Sidebar Navigation */}
       <Sidebar
-        notes={notes}
+        workspaceCounts={workspaceCounts}
+        notes={workspaceNotes}
         tags={allTagInfos}
         activeCategory={filterState.category}
         activeTag={filterState.selectedTag}
-        totalNotesCount={notes.filter((n) => !n.deletedAt).length}
-        pinnedNotesCount={notes.filter((n) => !n.deletedAt && n.isPinned).length}
-        favoriteNotesCount={notes.filter((n) => !n.deletedAt && n.isFavorite).length}
-        trashNotesCount={notes.filter((n) => Boolean(n.deletedAt)).length}
+        totalNotesCount={workspaceNotes.filter((n) => !n.deletedAt).length}
+        pinnedNotesCount={workspaceNotes.filter((n) => !n.deletedAt && n.isPinned).length}
+        favoriteNotesCount={workspaceNotes.filter((n) => !n.deletedAt && n.isFavorite).length}
+        trashNotesCount={workspaceNotes.filter((n) => Boolean(n.deletedAt)).length}
         workspaces={settings.workspaces || []}
         activeWorkspaceId={settings.activeWorkspaceId || 'default'}
         theme={theme}
@@ -665,9 +689,19 @@ export default function App() {
       />
 
       {/* Main Timeline View */}
+      <main className="flex-1 min-w-0">
       <TimelineFeed
+        saveFailed={saveFailed}
+        workspaces={settings.workspaces} lastWriteAt={writeTimes[activeWorkspaceId]} folderAuthorized={!!directoryHandles[activeWorkspaceId]}
+        onOpenStorage={()=>{setSettingsTab('paths');setIsSettingsOpen(true);}} lastBackupAt={lastBackupAt}
+        backupDue={notes.some(n=>!n.deletedAt)&&(!lastBackupAt||Date.now()-lastBackupAt>7*86400000)}
+        onBatchAction={(ids,action,value)=>{try{const next=applyBatchChange(notesRef.current,ids,activeWorkspaceId,action,value,(settings.workspaces||[]).map(w=>w.id));const ok=updateNotesWithHistory(next);if(ok)addToast('批量操作已保存，可使用撤销恢复','success');return ok;}catch(error){addToast((error as Error).message,'error');return false;}}}
+        folderSynced={syncedContents[activeWorkspaceId] === JSON.stringify(workspaceNotes)}
+        onRetrySave={() => updateNotesWithHistory(notesRef.current)}
+        onExportBackup={handleExportBackup}
+        workspaceId={activeWorkspaceId}
         notes={filteredNotes}
-        allNotes={notes}
+        allNotes={activeNotes}
         filterState={filterState}
         viewMode={viewMode}
         allTags={allTagNames}
@@ -694,23 +728,30 @@ export default function App() {
           setSettingsTab('help');
           setIsSettingsOpen(true);
         }}
-        onImportAllCaseDocuments={handleImportAllCaseDocuments}
         codeBlockTheme={settings.codeBlockTheme}
         tableTheme={settings.tableTheme}
         autoFoldLongNotes={settings.autoFoldLongNotes}
         onToggleAutoFold={() => setSettings((prev) => ({ ...prev, autoFoldLongNotes: !prev.autoFoldLongNotes }))}
       />
 
+      </main>
+      <Suspense fallback={<div role="status" className="fixed bottom-4 right-4 bg-white dark:bg-zinc-800 p-4 rounded-xl shadow-lg">正在打开…</div>}>
+      {pendingBackup && <ImportBackupModal backup={pendingBackup} notes={notes} settings={settings} onClose={() => setPendingBackup(null)} onConfirm={plan => {
+        if (!saveLibraryToStorage(plan.notes, plan.settings)) return false;
+        updateNotesWithHistory(plan.notes);
+        setSettings(plan.settings);
+        setDirectoryHandles({}); setSyncedContents({});
+        setPendingBackup(null);
+        addToast(`导入完成：加入 ${plan.added} 条笔记`, 'success');
+        return true;
+      }} />}
       {/* Focus Mode Overlay */}
       {focusedNote && (
         <FocusModeModal
           note={notes.find((n) => n.id === focusedNote.id) || focusedNote}
           allNotes={filteredNotes}
           onClose={() => setFocusedNote(null)}
-          onEditNote={(note) => {
-            setEditingNote(note);
-            setIsEditorOpen(true);
-          }}
+          onEditNote={handleEditNoteCard}
           onDeleteNote={(id) => {
             handleDeleteNote(id);
             setFocusedNote(null);
@@ -729,28 +770,17 @@ export default function App() {
       )}
 
       {/* Modals & Popups */}
-      <NoteEditorModal
+      {isEditorOpen && (
+      <NoteEditorModal key={editorSession}
         isOpen={isEditorOpen}
         onClose={() => {
           setIsEditorOpen(false);
           setEditingNote(null);
         }}
-        note={
-          editingNote ||
-          (initialComposerContent
-            ? ({
-                id: '',
-                content: initialComposerContent,
-                tags: [],
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                isPinned: false,
-                isFavorite: false,
-                history: [],
-              } as Note)
-            : null)
-        }
-        allNotes={notes}
+        note={notes.find(n=>n.id===editingNote?.id)||editingNote}
+        initialContent={initialComposerContent}
+        workspaceId={activeWorkspaceId}
+        allNotes={activeNotes}
         onSave={handleSaveEditorNote}
         allExistingTags={allTagNames}
         onShowToast={addToast}
@@ -759,7 +789,9 @@ export default function App() {
         autoSaveEnabled={settings.autoSaveEnabled}
         autoSaveDelay={settings.autoSaveDelay}
       />
+      )}
 
+      {!!exportingCardNote && (
       <NoteExportCardModal
         isOpen={!!exportingCardNote}
         onClose={() => setExportingCardNote(null)}
@@ -768,15 +800,19 @@ export default function App() {
         codeBlockTheme={settings.codeBlockTheme}
         tableTheme={settings.tableTheme}
       />
+      )}
 
+      {isAnalyticsModalOpen && (
       <AnalyticsModal
         isOpen={isAnalyticsModalOpen}
         onClose={() => setIsAnalyticsModalOpen(false)}
-        notes={notes}
+        notes={workspaceNotes}
         selectedDate={filterState.dateFilter}
         onSelectDate={(dateStr) => setFilterState((prev) => ({ ...prev, dateFilter: dateStr }))}
       />
+      )}
 
+      {isTagManagerOpen && (
       <TagManagerModal
         isOpen={isTagManagerOpen}
         onClose={() => setIsTagManagerOpen(false)}
@@ -787,30 +823,37 @@ export default function App() {
         onDeleteAllTags={handleDeleteAllTags}
         onOpenTagCloud={() => setIsTagCloudModalOpen(true)}
       />
+      )}
 
+      {isTagCloudModalOpen && (
       <TagCloudModal
         isOpen={isTagCloudModalOpen}
         onClose={() => setIsTagCloudModalOpen(false)}
         tags={allTagInfos}
-        notes={notes}
+        notes={workspaceNotes}
         activeTag={filterState.selectedTag}
         onSelectTag={(tag) => setFilterState((prev) => ({ ...prev, selectedTag: tag }))}
         onOpenTagManager={() => setIsTagManagerOpen(true)}
         onShowToast={addToast}
       />
+      )}
 
+      {isExportModalOpen && (
       <BatchExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        notes={filteredNotes}
+        notes={filteredNotes.filter(n=>!n.deletedAt)}
+        onOpenBackups={()=>{setSettingsTab('backups');setIsSettingsOpen(true);}}
         onImportBackup={handleRestoreNotes}
       />
+      )}
 
       {isResourceManagerOpen && (
         <ResourceManagerModal
           notes={notes}
           onClose={() => setIsResourceManagerOpen(false)}
           onCreateNoteWithImage={(imageUrl, altText) => {
+            setEditorSession(value => value + 1);
             setInitialComposerContent(`![${altText || '图片资源'}](${imageUrl})\n\n`);
             setEditingNote(null);
             setIsEditorOpen(true);
@@ -823,7 +866,14 @@ export default function App() {
       {isSettingsOpen && (
         <SettingsModal
           settings={settings}
-          notes={notes}
+          notes={workspaceNotes}
+          key={activeWorkspaceId}
+          activeDirHandle={directoryHandles[activeWorkspaceId]}
+          onSaveDirHandle={handle => { setDirectoryHandles(prev => ({ ...prev, [activeWorkspaceId]: handle })); setSyncedContents(prev => ({ ...prev, [activeWorkspaceId]: "" })); }}
+          onImportNotes={handleRestoreNotes}
+          workspaceCounts={workspaceCounts}
+          lastBackupAt={lastBackupAt} lastWriteAt={writeTimes[activeWorkspaceId]} onOpenTemplate={handleOpenFullEditor}
+          onWorkspaceSynced={() => {setSyncedContents(prev => ({ ...prev, [activeWorkspaceId]: JSON.stringify(workspaceNotes) }));const next={...writeTimes,[activeWorkspaceId]:Date.now()};setWriteTimes(next);try{localStorage.setItem('stillnote_write_times',JSON.stringify(next));}catch{addToast('文件夹写入成功，但时间记录保存失败','info');}}}
           initialTab={settingsTab}
           onUpdateSettings={setSettings}
           theme={theme}
@@ -848,29 +898,28 @@ export default function App() {
               activeWorkspaceId: ws.id,
             }))
           }
-          onDeleteWorkspace={(wsId) =>
-            setSettings((s) => ({
-              ...s,
-              workspaces: (s.workspaces || []).filter((w) => w.id !== wsId),
-            }))
-          }
-          onImportCaseDocument={handleImportCaseDocument}
-          onImportAllCaseDocuments={handleImportAllCaseDocuments}
-        />
+          onDeleteWorkspace={wsId => {
+            if (notes.some(note => inWorkspace(note, wsId))) { addToast('此工作区仍有笔记或回收站记录，请先处理后再移除。', 'info'); return; }
+            setSettings(previous => ({ ...previous, workspaces: (previous.workspaces || []).filter(workspace => workspace.id !== wsId), activeWorkspaceId: previous.activeWorkspaceId === wsId ? 'default' : previous.activeWorkspaceId }));
+          }}
+          />
       )}
 
+      {isSponsorModalOpen && (
       <SponsorAuthorModal
         isOpen={isSponsorModalOpen}
         onClose={() => setIsSponsorModalOpen(false)}
         onShowToast={addToast}
       />
+      )}
 
+      {isCommandPaletteOpen && (
       <CommandPaletteModal
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
-        notes={notes}
-        onSelectNote={(note) => setEditingNote(note)}
-        onCreateNewNote={() => setIsEditorOpen(true)}
+        notes={workspaceNotes}
+        onSelectNote={handleEditNoteCard}
+        onCreateNewNote={() => handleOpenFullEditor()}
         onSetSearchKeyword={(kw) => setFilterState((prev) => ({ ...prev, searchKeyword: kw }))}
         onSetViewMode={(mode) => setViewMode(mode)}
         onSetCategoryFilter={(cat) => setFilterState((prev) => ({ ...prev, category: cat }))}
@@ -889,7 +938,9 @@ export default function App() {
         onRedo={handleRedo}
         onShowToast={addToast}
       />
+      )}
 
+      </Suspense>
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>

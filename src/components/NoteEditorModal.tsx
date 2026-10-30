@@ -1,4 +1,7 @@
+import { compareLines } from '../utils/product';
+import { initialEditorDraft } from '../utils/editorDraft';
 import React, { useState, useEffect, useRef } from 'react';
+import { useDialog } from '../hooks/useDialog';
 import { Note, NoteHistory } from '../types';
 import { TyporaBlockEditor } from './TyporaBlockEditor';
 import { formatFriendlyTime, extractTags, calculateTextStats } from '../utils/markdownUtils';
@@ -38,9 +41,11 @@ import { ImageInsertModal } from './ImageInsertModal';
 interface NoteEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialContent?: string;
+  workspaceId?: string;
   note: Note | null; // null if creating new note
   allNotes?: Note[];
-  onSave: (content: string, isPinned: boolean, isFavorite: boolean, isAutoSave?: boolean) => void;
+  onSave: (content: string, isPinned: boolean, isFavorite: boolean, isAutoSave?: boolean) => boolean;
   allExistingTags: string[];
   onShowToast: (text: string, type?: 'success' | 'info' | 'error') => void;
   onBiLinkClick?: (title: string) => void;
@@ -53,6 +58,8 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
   isOpen,
   onClose,
   note,
+  initialContent = '',
+  workspaceId = 'default',
   allNotes = [],
   onSave,
   allExistingTags,
@@ -62,9 +69,15 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
   autoSaveEnabled = true,
   autoSaveDelay = 2000,
 }) => {
-  const [content, setContent] = useState('');
-  const [isPinned, setIsPinned] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const draftKey = useRef(`flovenote_editor_draft_${workspaceId}_${note?.id || 'new'}`).current;
+  const [initial] = useState(() => {
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(draftKey); } catch {}
+    return initialEditorDraft(note, initialContent, raw);
+  });
+  const [content, setContent] = useState(initial.content);
+  const [isPinned, setIsPinned] = useState(initial.isPinned);
+  const [isFavorite, setIsFavorite] = useState(initial.isFavorite);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showTagDropdown, setShowTagDropdown] = useState(false);
@@ -75,8 +88,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showExportImageModal, setShowExportImageModal] = useState(false);
 
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const isInitialMount = useRef(true);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Extract current tags from content in real-time
   const currentTags = extractTags(content);
@@ -100,38 +112,52 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
     setContent(updated);
   };
 
+  const [draftError, setDraftError] = useState(false);
+  const lastSaved = useRef(JSON.stringify([note?.content || '', note?.isPinned || false, note?.isFavorite || false]));
+  const [showMoreTools, setShowMoreTools] = useState(false);
+  const signature = JSON.stringify([content, isPinned, isFavorite]);
   useEffect(() => {
-    if (note) {
-      setContent(note.content);
-      setIsPinned(note.isPinned);
-      setIsFavorite(note.isFavorite);
-    } else {
-      setContent('');
-      setIsPinned(false);
-      setIsFavorite(false);
-    }
-    setShowHistoryModal(false);
-    isInitialMount.current = true;
-    setAutoSaveStatus('idle');
-  }, [note, isOpen]);
-
-  // Debounced auto-save effect
+    if (!isOpen) return;
+    try {
+      if (signature !== lastSaved.current) localStorage.setItem(draftKey, JSON.stringify({ content, isPinned, isFavorite, explicitEmpty: !content.trim(), version: 2 }));
+      else localStorage.removeItem(draftKey);
+      setDraftError(false);
+    } catch { setDraftError(true); }
+  }, [signature, draftKey, isOpen]);
   useEffect(() => {
-    if (!isOpen || !content.trim() || !autoSaveEnabled) return;
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
+    if (!isOpen || !note?.id || !content.trim() || !autoSaveEnabled || signature === lastSaved.current) return;
     setAutoSaveStatus('saving');
     const timer = setTimeout(() => {
-      onSave(content, isPinned, isFavorite, true);
-      setAutoSaveStatus('saved');
+      const saved = onSave(content, isPinned, isFavorite, true);
+      setAutoSaveStatus(saved ? 'saved' : 'error');
+      if (saved) {
+        lastSaved.current = signature;
+        try { localStorage.removeItem(draftKey); } catch { /* Persistent banner handles storage failure. */ }
+      }
     }, autoSaveDelay);
-
     return () => clearTimeout(timer);
-  }, [content, isPinned, isFavorite, isOpen, autoSaveEnabled, autoSaveDelay]);
+  }, [signature, isOpen, note?.id, autoSaveEnabled, autoSaveDelay, onSave]);
+  const closeEditor = () => {
+    if (signature !== lastSaved.current && (content.trim() || note?.id)) {
+      if (!content.trim() && note?.content.trim() && !window.confirm('正文已清空。是否保存为空白笔记？取消将保留编辑器以便恢复内容。')) return false;
+      if (!onSave(content, isPinned, isFavorite, true)) {
+        setAutoSaveStatus('error');
+        onShowToast('保存失败，编辑器已保留内容。请复制正文或导出备份后重试。', 'error');
+        return false;
+      }
+      try { localStorage.removeItem(draftKey); } catch { /* Content has been persisted. */ }
+    }
+    onClose();
+    return true;
+  };
+  const dialogRef = useDialog(isOpen, closeEditor);
+  const historyDialogRef = useDialog(isOpen && showHistoryModal, () => setShowHistoryModal(false));
+  useEffect(() => {
+    if (!draftError && signature === lastSaved.current) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [signature, draftError]);
 
   if (!isOpen) return null;
 
@@ -161,9 +187,12 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
   };
 
   const handleSave = () => {
-    if (!content.trim()) return;
-    onSave(content, isPinned, isFavorite);
-    onClose();
+    if (!content.trim() && !note?.id) return;
+    if (!content.trim() && note?.content.trim() && !window.confirm('正文已清空，是否保存为空白笔记？')) return;
+    if (onSave(content, isPinned, isFavorite)) {
+      try { localStorage.removeItem(draftKey); } catch {}
+      onClose();
+    } else setAutoSaveStatus('error');
   };
 
   // Restore snapshot version
@@ -182,8 +211,8 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
-      <div
-        className={`bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="笔记编辑器" tabIndex={-1}
+        className={`sn-editor-dialog bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
           isFullscreen ? 'w-full h-full rounded-none' : 'max-w-5xl w-full h-[90vh]'
         }`}
       >
@@ -194,6 +223,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
               {note ? '编辑笔记' : '新建笔记'}
             </span>
 
+            <span role="status" className="text-xs text-slate-600 dark:text-zinc-300">{autoSaveStatus === 'error' ? '保存失败，内容仍在编辑器中' : draftError ? '草稿保存失败' : ''}</span>
             {/* Auto-save status indicator */}
             {autoSaveStatus === 'saving' && (
               <span className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-900/40 animate-pulse">
@@ -204,7 +234,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
             {autoSaveStatus === 'saved' && (
               <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-900/40">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>已自动存至本地</span>
+                <span>已保存到浏览器</span>
               </span>
             )}
 
@@ -232,7 +262,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
             </button>
 
             <button
-              onClick={onClose}
+              onClick={closeEditor} aria-label="关闭并保存笔记"
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800"
             >
               <X className="w-5 h-5" />
@@ -256,6 +286,8 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
           >
             <Italic className="w-4 h-4" />
           </button>
+          <button type="button" onClick={() => setShowMoreTools(value => !value)} aria-expanded={showMoreTools} className="px-2 py-1 text-sm">更多格式</button>
+          {showMoreTools && (<>
           <button
             onClick={() => insertFormatting('~~', '~~', '删除线')}
             className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100"
@@ -266,6 +298,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
 
           <div className="h-4 w-[1px] bg-slate-200 dark:bg-zinc-800 mx-1" />
 
+          </>)}
           <button
             onClick={() => insertFormatting('# ', '', '一级标题')}
             className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100"
@@ -307,6 +340,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
 
           <div className="h-4 w-[1px] bg-slate-200 dark:bg-zinc-800 mx-1" />
 
+          {showMoreTools && (<>
           <button
             onClick={() => insertFormatting('```typescript\n', '\n```', '// 代码块')}
             className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100"
@@ -342,6 +376,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
 
           <div className="h-4 w-[1px] bg-slate-200 dark:bg-zinc-800 mx-1" />
 
+          </>)}
           <button
             onClick={() => setShowImageModal(true)}
             className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 text-slate-600 dark:text-zinc-300 transition-colors"
@@ -444,7 +479,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
           {content.trim() && (
             <button
               onClick={() => setShowExportImageModal(true)}
-              className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center gap-1 text-xs font-semibold transition-colors ml-auto"
+              className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center gap-1 text-xs font-semibold transition-colors ml-auto"
               title="将当前笔记导出为精美长图"
             >
               <Palette className="w-4 h-4" />
@@ -518,14 +553,13 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
             onSave={handleSave}
             fontSize={editorFontSize}
             onBiLinkClick={(title) => {
-              onClose();
-              onBiLinkClick?.(title);
+              if (closeEditor()) onBiLinkClick?.(title);
             }}
           />
         </div>
 
         {/* Footer Bar */}
-        <div className="px-6 py-3 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
+        <div className="sn-editor-footer px-6 py-3 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400">
             <span>{charCount} 字</span>
             <span className="hidden sm:inline opacity-75">({rawCharCount} 字符)</span>
@@ -536,14 +570,14 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onClose}
+              onClick={closeEditor} aria-label="关闭并保存笔记"
               className="px-4 py-2 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl text-xs font-medium transition-colors"
             >
-              取消
+              关闭并保存
             </button>
             <button
               onClick={handleSave}
-              disabled={!content.trim()}
+              disabled={!content.trim() && !note?.id}
               className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
             >
               <Save className="w-3.5 h-3.5" />
@@ -556,7 +590,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
       {/* History Snapshots Modal */}
       {showHistoryModal && (
         <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+          <div ref={historyDialogRef} role="dialog" aria-modal="true" aria-label="修改历史版本" tabIndex={-1} className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-2 text-slate-900 dark:text-zinc-100 font-semibold text-sm">
                 <History className="w-4 h-4 text-indigo-500" />
@@ -595,6 +629,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
                         <span>恢复此快照</span>
                       </button>
                     </div>
+                    <details className="mb-3"><summary>与当前正文对比</summary><p>旧版本中被修改的部分</p><pre className="sn-diff-removed">{compareLines(h.content,content).removed||'（无）'}</pre><p>当前正文中的对应部分</p><pre className="sn-diff-added">{compareLines(h.content,content).added||'（无）'}</pre></details>
                     <div className="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-slate-200/60 dark:border-zinc-800/60 text-xs font-mono text-slate-700 dark:text-zinc-300 max-h-36 overflow-y-auto whitespace-pre-wrap">
                       {h.content}
                     </div>
@@ -643,14 +678,14 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
         isOpen={showExportImageModal}
         onClose={() => setShowExportImageModal(false)}
         note={
-          note || {
-            id: 'temp-preview',
+          {
+            id: note?.id || 'temp-preview',
             content: content,
-            tags: [],
-            createdAt: Date.now(),
+            tags: extractTags(content),
+            createdAt: note?.createdAt || Date.now(),
             updatedAt: Date.now(),
-            isPinned: false,
-            isFavorite: false,
+            isPinned,
+            isFavorite,
           }
         }
         onShowToast={onShowToast}

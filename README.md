@@ -1,268 +1,134 @@
 <div align="center">
-
-# ✨ FloveNote
-
-### 极简现代化 Markdown 时间轴笔记与个人第二大脑知识系统
-
-<p align="center">
-  <strong>像记录动态一样捕捉灵感 · 像维基百科一样构建双链知识森林 · 一键导出高赞社交长图与高清 PDF</strong>
-</p>
-
-[![GitHub stars](https://img.shields.io/github/stars/Crazyer-Flove/FloveNote?style=for-the-badge&logo=github&color=6366f1)](https://github.com/Crazyer-Flove/FloveNote/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Crazyer-Flove/FloveNote?style=for-the-badge&logo=github&color=8b5cf6)](https://github.com/Crazyer-Flove/FloveNote/network/members)
-[![License](https://img.shields.io/badge/License-MIT-emerald.svg?style=for-the-badge)](LICENSE)
-[![React](https://img.shields.io/badge/React-18.3.1-blue.svg?style=for-the-badge&logo=react)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4.0-38bdf8.svg?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
-
-[在线体验](https://github.com/Crazyer-Flove/FloveNote) · [提交 Issue 建议](https://github.com/Crazyer-Flove/FloveNote/issues) · [更新日志](https://github.com/Crazyer-Flove/FloveNote/releases) · [赞赏支持](#-赞赏作者--sponsor)
-
----
-
+  <img src="public/stillnote-mark.png" width="88" alt="Stillnote 标志" />
+  <h1>Stillnote</h1>
+  <p><strong>留住一闪而过的想法。</strong></p>
+  <p>A quiet, local-first Markdown notebook.</p>
+  <p>
+    <a href="https://github.com/Crazyer-Flove/Stillnote/releases/latest">下载 Windows 版</a> ·
+    <a href="docs/user-guide.md">使用指南</a> ·
+    <a href="docs/development.md">开发与打包</a> ·
+    <a href="CHANGELOG.md">更新记录</a>
+  </p>
+  <p><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-6f7d59" /> <img alt="Windows x64" src="https://img.shields.io/badge/desktop-Windows%20x64-6f7d59" /> <img alt="React and TypeScript" src="https://img.shields.io/badge/React-TypeScript-6f7d59" /></p>
 </div>
 
-## 📖 项目简介 (Introduction)
+Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。打开即可记录，通过工作区、标签和搜索整理内容，再导出为 Markdown、图片或 PDF。界面采用纸张色背景、克制的绿色和清晰的阅读层次，让日常记录保持轻松。
 
-**FloveNote** 是一款为创作者、开发者与思考者量身打造的**极简主义流式 Markdown 时间轴笔记系统**。
+无需注册账号。Windows 桌面版内置应用资源，不需要安装 Node.js 或启动服务器；源码也支持在浏览器中运行。当前界面语言为中文。
 
-在传统笔记软件中，我们常常被繁琐的文件夹层级分类、复杂的排版菜单和封闭的专有格式所束缚。FloveNote 重新回归记录的初心——**以时间轴为流，以双向链接为网，以纯粹 Markdown 为核**。无需构思复杂的目录架构，随手敲下灵感，系统自动编排流式时间轴，并支持构建原子级卡片双向网状图谱。
+![Stillnote 工作区，示例为空笔记库](docs/images/workspace.png)
 
----
+## 下载与开始
 
-## 🌟 核心亮点特性 (Key Features)
+前往 [Releases](https://github.com/Crazyer-Flove/Stillnote/releases/latest)，按使用方式选择：
 
-### 1. ⏱️ 流式时间轴记录 (Timeline Stream)
-- 像在社交平台发布动态一样顺畅自然，顶层即输即发。
-- 自动按**今日、昨日、本周、按月**智能归集编排。
-- 支持按热度、修改时间、发布时间、纯文本全文即时检索与日期跨度筛选。
+| 文件 | 适合场景 |
+| --- | --- |
+| `Stillnote-1.0.0-Windows-x64-Portable.exe` | 下载后双击运行，无需安装 |
+| `Stillnote-1.0.0-Windows-x64-Setup.exe` | 安装到指定目录，添加开始菜单入口 |
+| `SHA256SUMS.txt` | 核对下载文件的 SHA-256 |
 
-### 2. ✍️ Typora 级 Live Markdown 实时渲染
-- 纯键盘优先，支持加粗 `**Text**`、斜体 `*Text*`、删除线 `~~Text~~`、高亮、行内代码与引用块。
-- 交互式交互任务清单 `- [ ]` / `- [x]`，点击复选框直接在正文同步状态。
-- 多级列表自适应缩进与排版。
+支持 Windows 10/11 x64。首次打开便携版需要解压内置运行时，可能稍慢。安装包采用当前用户安装，无需管理员权限。
 
-### 3. 🧠 双向网状链接与知识沉淀 (`[[双链]]`)
-- 在笔记中直接键入 `[[某篇笔记标题]]`，即可实现网状双向引用。
-- 卡片底部**自动解析出所有反向链接与引用出处**，点击直接穿梭高亮关联笔记。
-- 彻底打破知识孤岛，践行卢曼卡片盒笔记法（Zettelkasten）。
+**创建桌面快捷方式：** 打开「系统设置 → 外观」，在桌面应用区域点击「创建桌面快捷方式」。便携版快捷方式指向原始 EXE；移动或重命名 EXE 后，请重新创建。安装程序默认不创建桌面快捷方式。
 
-### 4. 🏷️ 智能标签、标签云可视化与拖拽归类
-- 正文中输入 `#工作/周报` 或 `#闪念灵感`，系统实时提取标签树。
-- 支持鼠标拖拽卡片直接扔到左侧边栏对应标签上快速打标。
-- **动态标签云全景图 (Tag Cloud)**：支持在侧边栏切换紧凑标签云视图，或打开全景标签云模态框。标签字号与视觉权重随关联笔记使用频率自适应缩放，支持多彩流光/暗夜荧光等多套配色主题、标签搜索过滤与热度排序。
-- 标签管理面板支持**一键标签重命名、多标签合并、单个删除与一键清空所有标签**（含二次确认防误触与历史撤销保护）。
+当前发布未购买代码签名证书，EXE 没有数字签名。请从本仓库 Releases 下载并核对校验值；如系统提示风险，应先核验文件来源。
 
-### 5. 📐 KaTeX 数学公式与多语言代码高亮
-- 深度集成 **KaTeX**：支持行内质能公式 `$E=mc^2$` 与复杂多行矩阵、高斯积分块级公式 `$$ \int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi} $$`。
-- 多语言语法高亮（TypeScript, JavaScript, Python, Rust, Go, SQL, Bash 等），配备 macOS 经典红黄绿控制台窗口顶栏与一键复制按钮。
-
-### 6. 🎨 高赞社交卡片生成与免打印高清 PDF 导出
-- **7 款设计师调色板**：极简流光、日落霞光、深邃夜空、复古羊皮纸、拍立得画框、清新薄荷、梦幻薰衣草。
-- **高精度矢量排版**：精准字数统计、日期时间戳与个性化作者签名。
-- **一键复制卡片图片**到系统剪贴板（直接粘贴发送至微信/QQ/Slack），或直接导出免浏览器打印的高清矢量 PDF。
-
-### 7. 📁 本地电脑工作区与原生文件夹目录绑定
-- **原生文件系统目录选择**：支持直接通过浏览器调用操作系统原生文件夹选择器（File System Access API），关联电脑任意存储目录（如 `~/Documents/FloveNote` 或 `D:/MyNotes`）。
-- **三层智能子路径自动/独立映射**：
-  - 📝 **笔记正文目录 (Notes)**：自动分类存储为标准 `.md` 原生 Markdown 格式。
-  - 🖼️ **媒体附件存储目录 (.src / Assets)**：自动存储剪贴板粘贴与本地拖拽的图片/附件，与 Obsidian、Typora 100% 互通。
-  - 📦 **全量备份与快照目录 (Backups)**：存放版本时光机快照与完整结构化数据备份。
-- **一键写入与扫描导入**：支持将所有笔记即时写入本地磁盘，或扫描本地目录无损还原载入现有 Markdown 笔记。
-
-### 8. ⌨️ 全局命令面板 (`Cmd+K`) 与沉浸专注模式
-- 按下 <kbd>Ctrl</kbd>+<kbd>K</kbd> / <kbd>Cmd</kbd>+<kbd>K</kbd> 秒级呼出万能命令面板，支持拼音与全文模糊搜索、视图切换、触发专注模式与标签云全景图。
-- **Focus Mode 全屏专注写作**：纯净无干扰打字机视野，字数统计与按键音效反馈，沉浸进入心流。
-- **GitHub 风格打卡热力图**：年度活跃天数与连续打卡天数追踪，点击热力图任一日期即可按日穿梭查看历史灵感。
-
-### 9. 🛡️ 多工作区隔离、历史快照与全量备份
-- 支持自由创建与切换独立工作区（如「个人日常」、「研发工作」、「架构设计」），每个工作区均可独立绑定不同的本地物理路径。
-- 编辑过程中每 3 秒自动记录增量快照，支持时间轴快照比对与一键时光回滚。
-- 支持全量导出为 **Markdown (.md ZIP)、JSON 结构化备份、HTML、纯文本**，支持一键无损导入恢复。
-- 采用零冗余干净空白库起步，并在设置中内置《实战案例文档库》（包含 Markdown 排版指南、LaTeX 公式手册、敏捷研发周报、第二大脑实践）随时供用户参考与一键导入。
-
----
-
-## 📸 功能实景展示 (Visual Showcase)
-
-| 核心模块 | 功能展示与说明 |
-| :--- | :--- |
-| **流式时间轴主界面** | <div align="center"><img src="public/alipay-qr.png" width="80" alt="FloveNote Timeline" /><br/><sub>时间轴流式编排 · 顶部快捷发布框 · 多维分类筛选</sub></div> |
-| **Typora 实时 Markdown & KaTeX** | 纯净无干扰书写，行内/块级公式、代码高亮、表格、待办任务与双链无缝实时渲染 |
-| **动态标签云全景图** | 标签字号与视觉权重随关联笔记频次自适应缩放，支持多彩流光与暗黑夜光等 4 款配色 |
-| **7 色卡片 & 矢量 PDF 导出器** | 极简流光 / 日落霞光 / 赛博夜空 / 复古羊皮纸等多款配色，一键复制图片与生成高清 PDF |
-| **本地工作区物理目录直连** | 浏览器原生 File System Access API 绑定电脑真实文件夹，与 Obsidian 100% 互通 |
-| **实战案例文档库** | 系统设置内置《Markdown 全功能排版指南》、《KaTeX 公式手册》、《敏捷研发周报》、《第二大脑实践》案例 |
-
----
-
-## 📊 产品对比 (Feature Matrix)
-
-| 维度对比 | FloveNote | 传统备忘录 / 待办软件 | Notion / 语雀 | 纯 Obsidian |
-| :--- | :---: | :---: | :---: | :---: |
-| **记录阻力** | ⚡ **零门槛**（即发即走） | ⚪ 一般 | 🐢 较重（需选模板/建页面） | ⚪ 一般 |
-| **数据隐私** | 🔒 **100% 本地存储** | ☁️ 依赖云端厂商 | ☁️ 闭源云端数据库 | 🔒 本地文件 |
-| **双向链接图谱** | ✅ **原生卡片级双链** | ❌ 不支持 | ⚠️ 页面级关联 | ✅ 原生支持 |
-| **可视化标签云** | ✅ **内置 4 色标签云** | ❌ 不支持 | ❌ 不支持 | ⚠️ 需插件 |
-| **公式与代码高亮** | ✅ **KaTeX + Prism** | ❌ 仅纯文本 | ✅ 支持 | ✅ 支持插件 |
-| **社交卡片长图导出** | 🎨 **内置 7 色高清长图** | ❌ 截屏变形 | ❌ 仅白底打印 | ❌ 需配置社区插件 |
-| **Obsidian `.src/` 兼容** | ✅ **完全兼容** | ❌ 不兼容 | ❌ 专有格式 | ✅ 原生标准 |
-
----
-
-## 🛠️ 技术栈架构 (Tech Stack)
-
-- **核心框架**：[React 18](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
-- **构建工具**：[Vite](https://vitejs.dev/)
-- **样式方案**：[Tailwind CSS](https://tailwindcss.com/) + CSS Variables
-- **图标系统**：[Lucide React](https://lucide.dev/)
-- **动效库**：[Motion](https://motion.dev/)
-- **Markdown & 语法解析**：
-  - [KaTeX](https://katex.org/) - 极速 LaTeX 数学公式渲染
-  - [Prism.js](https://prismjs.com/) - 现代代码块语法着色
-  - 自研双向链接 `[[WikiLink]]` 与 `#标签` 正则解析引擎
-- **导出引擎**：
-  - [html-to-image](https://github.com/bubkoo/html-to-image) - 高保真 DOM 像素级图片光栅化
-  - [jsPDF](https://github.com/parallax/jsPDF) - 矢量 PDF 自动分页渲染
-- **数据持久化**：
-  - 本地离线优先存储（LocalStorage + IndexedDB / File System Access API）
-
----
-
-## 🚀 快速开始 (Quick Start)
-
-### 环境要求
-- [Node.js](https://nodejs.org/) `>= 18.0.0`
-- [npm](https://www.npmjs.com/) `>= 9.0.0` 或 [pnpm](https://pnpm.io/) / [yarn](https://yarnpkg.com/)
-
-### 安装与启动
-
-1. **克隆项目到本地**
-```bash
-git clone https://github.com/Crazyer-Flove/FloveNote.git
-cd FloveNote
+```powershell
+Get-FileHash .\Stillnote-1.0.0-Windows-x64-Portable.exe -Algorithm SHA256
 ```
 
-2. **安装项目依赖**
-```bash
-npm install
-# 或者使用 pnpm
-# pnpm install
-```
+> 便携版表示免安装，并不表示数据保存在 EXE 旁边。桌面版数据位于 `%APPDATA%\Stillnote`。便携版与安装版共用此目录。备份是可靠迁移和恢复的必要步骤。
 
-3. **启动本地开发服务器**
+## 可以做什么
+
+| 场景 | 功能 |
+| --- | --- |
+| 随手记录 | 快速输入、完整编辑器、日记/会议/读书三种模板、未完成草稿恢复 |
+| Markdown 写作 | 即时预览、源码/分栏/预览模式、任务列表、表格、公式、代码高亮、图片 |
+| 整理与查找 | 多工作区、层级标签、收藏、置顶、日期筛选、最近搜索与命名筛选 |
+| 批量处理 | 对当前结果批量添加标签、移动工作区、导出 Markdown 或移入回收站 |
+| 回看修改 | 按编辑会话保存历史起始快照，最多 50 个，查看差异和恢复版本 |
+| 分享内容 | Markdown；高级格式中的 TXT/HTML；三种卡片主题，复制/下载图片与 PDF |
+| 保存与迁移 | 本机保存状态、JSON 完整备份、导入预览、重复与冲突处理、可选文件夹写入 |
+| 日常维护 | 回收站、资源引用检查、帮助说明、明暗模式和两种阅读字体 |
+
+代码与表格样式随明暗模式自动适配，减少重复选项；卡片导出只保留极简白、暖纸、深色三种主题。正文写作和数据管理各有独立入口。
+
+### 写作与阅读
+
+![Markdown 编辑器，示例含代码和表格](docs/images/editor.png)
+
+支持常见 Markdown 与 GFM 语法、KaTeX 公式、图片拖放/粘贴和代码复制。已有笔记自动保存；新建模板先保留为草稿，明确保存后进入笔记库。保存失败会显示提示，请及时导出备份。
+
+### 导出与设置
+
+![暖纸卡片导出预览](docs/images/export.png)
+
+图片/PDF 面向阅读与分享，JSON 备份面向恢复。PDF 使用卡片图像排版，正文不是可编辑的文本 PDF；特别长的笔记和远程图片可能受内存、画布或跨域限制影响。
+
+<details>
+<summary>查看设置与移动端布局</summary>
+
+![分组设置与阅读字体](docs/images/settings.png)
+
+<img src="docs/images/mobile-export.png" width="320" alt="浏览器移动端导出界面" />
+
+截图使用演示笔记，来自浏览器功能验收；桌面版共用同一界面，另增加桌面应用信息和快捷方式按钮。
+</details>
+
+## 数据、备份与旧版迁移
+
+- 笔记默认保存在当前浏览器配置或桌面应用配置中，不会自动同步到云端或其他设备。清除浏览器站点数据会丢失该配置中的本地记录。
+- 桌面版与网页、不同浏览器、不同端口/域名是独立的数据空间。由旧版迁移时，先在原页面导出 JSON 备份，再在新版「系统设置 → 备份恢复」导入，并检查预览。
+- 沿用旧版笔记存储键，兼容旧数组与 v2 JSON 备份；旧主题偏好会映射到精简后的样式。
+- JSON 备份包含笔记、历史、笔记引用的本机图片、工作区及允许的偏好。**不包含独立图片资源库、文件夹授权、API Key、最近搜索、命名筛选和导出参数。** 远程图片仍是链接，不会自动离线打包。
+- 文件夹存储需要用户主动选择并授权，每次重新打开应用可能需要重新授权。路径文本不等于已获得写入权限；写入前可预览，不会将任意同名文件直接覆盖。
+- 本地数据没有额外的应用层加密；请结合操作系统账户和磁盘保护管理敏感笔记。
+
+更多说明见 [使用与迁移指南](docs/user-guide.md)、[隐私说明](docs/privacy.md) 和 [安全策略](SECURITY.md)。
+
+## 本地开发
+
+需要 Node.js 22 LTS 与 npm。使用 npm 锁文件安装：
+
 ```bash
+git clone https://github.com/Crazyer-Flove/Stillnote.git
+cd Stillnote
+npm ci
 npm run dev
 ```
-启动完成后，在浏览器打开 `http://localhost:3000` 即可畅享极简记录。
 
-4. **构建生产版本**
+打开 `http://localhost:3000`。服务默认仅监听 `127.0.0.1`；可参考 `.env.example` 设置端口。
+
 ```bash
-npm run build
-```
-编译产物将输出至 `dist/` 目录，可直接部署至任何静态托管平台（如 Vercel、Cloudflare Pages、GitHub Pages 或 Nginx）。
-
----
-
-## ⌨️ 快捷键速查表 (Keyboard Shortcuts)
-
-| 快捷键 (Mac / Windows) | 动作说明 |
-| :--- | :--- |
-| <kbd>Ctrl</kbd> + <kbd>K</kbd> / <kbd>Cmd</kbd> + <kbd>K</kbd> | 唤起**全局命令面板 (Command Palette)** |
-| <kbd>Ctrl</kbd> + <kbd>N</kbd> / <kbd>Cmd</kbd> + <kbd>N</kbd> | 快速弹出新建笔记编辑器 |
-| <kbd>Ctrl</kbd> + <kbd>Enter</kbd> / <kbd>Cmd</kbd> + <kbd>Enter</kbd> | 保存并发布当前笔记内容 |
-| <kbd>Ctrl</kbd> + <kbd>B</kbd> / <kbd>Cmd</kbd> + <kbd>B</kbd> | 选中文本快速加粗 `**粗体**` |
-| <kbd>Ctrl</kbd> + <kbd>I</kbd> / <kbd>Cmd</kbd> + <kbd>I</kbd> | 选中文本快速设为 `*斜体*` |
-| <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Cmd</kbd> + <kbd>Z</kbd> | 撤销上一步操作 (Undo) |
-| <kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | 重做上一步操作 (Redo) |
-| <kbd>Esc</kbd> | 关闭当前打开的弹窗或浮层 |
-
----
-
-## 📂 项目目录结构 (Directory Structure)
-
-```text
-FloveNote/
-├── public/                  # 静态公共资源 (赞赏二维码等)
-│   ├── alipay-qr.png
-│   └── wechat-qr.png
-├── src/
-│   ├── components/          # 核心 UI 与业务功能组件
-│   │   ├── AnalyticsModal.tsx        # 写作热力图与统计分析
-│   │   ├── BatchExportModal.tsx      # 全量批量导出与恢复备份
-│   │   ├── CommandPaletteModal.tsx   # 全局命令搜索面板 (Cmd+K)
-│   │   ├── ContributionHeatmap.tsx   # GitHub 风格写作打卡热力图
-│   │   ├── FocusModeModal.tsx        # 沉浸式全屏专注写作模式
-│   │   ├── MarkdownRenderer.tsx      # 高性能 Markdown 渲染引擎
-│   │   ├── NoteCard.tsx              # 时间轴卡片组件
-│   │   ├── NoteEditorModal.tsx       # Typora 风格全功能编辑器
-│   │   ├── NoteExportCardModal.tsx   # 7 色卡片长图 & PDF 导出器
-│   │   ├── OnboardingHelpModal.tsx   # 新手交互式 8 步上手导览
-│   │   ├── ResourceManagerModal.tsx  # .src/ 本地相对图片资源管家
-│   │   ├── SettingsModal.tsx         # 系统偏好与实战案例文档库
-│   │   ├── Sidebar.tsx               # 响应式可伸缩侧边栏与标签树
-│   │   ├── SponsorAuthorModal.tsx    # 赞赏支持作者模块
-│   │   ├── TagCloudModal.tsx         # 动态标签云可视化全景模态框
-│   │   ├── TagManagerModal.tsx       # 智能标签合并、重命名与一键清空
-│   │   ├── TimelineFeed.tsx          # 时间轴流式主视口
-│   │   ├── Toast.tsx                 # 轻量交互反馈通知
-│   │   ├── TopComposer.tsx           # 顶部即发灵感快捷输入框
-│   │   └── TyporaBlockEditor.tsx     # 块级所见即所得编辑器
-│   ├── utils/               # 工具函数与业务核心逻辑
-│   │   ├── caseDocuments.ts          # 精选实战案例文档库 (4 套范例)
-│   │   ├── localFileSystem.ts        # File System Access API 硬盘物理映射
-│   │   ├── markdownUtils.ts          # 文本统计、日期编排与 Markdown 解析
-│   │   ├── storage.ts                # 本地存储持久化与工作区隔离
-│   │   └── templates.ts              # 常用笔记模板库
-│   ├── types.ts             # 全局 TypeScript 接口定义
-│   ├── App.tsx              # 应用顶层状态编排与路由调度
-│   ├── main.tsx             # 客户端主挂载入口
-│   └── index.css            # Tailwind 样式引入与主题变量
-├── package.json             # 依赖管理配置
-├── tsconfig.json            # TypeScript 编译选项
-└── README.md                # 项目文档
+npm run lint          # TypeScript 检查
+npm test              # 数据安全与功能回归
+npm run build         # 前端及生产服务
+npm start             # 启动生产服务
+npm run desktop:dev   # 桌面开发预览
+npm run desktop:build # Windows x64 便携版 + 安装版
 ```
 
----
+Windows 构建产物位于 `release/`。桌面壳使用 Electron 的进程隔离、沙箱和受限 IPC；前端本地加载，不启动 Express 服务。详细结构、构建条件和发布流程见 [开发文档](docs/development.md)。
 
-## ☕ 赞赏作者 (Sponsor)
+## 贡献与问题反馈
 
-如果您喜欢 **FloveNote**，或者它在日常记录、知识沉淀与技术周报中为您带来了便利与愉悦，欢迎扫描下方二维码请作者喝杯咖啡 ☕，支持软件的持续开源维护与功能演进！
+欢迎通过 [Issues](https://github.com/Crazyer-Flove/Stillnote/issues) 提交复现步骤和建议。提交前请阅读 [贡献指南](CONTRIBUTING.md)。请勿上传个人笔记、API Key、真实备份或含隐私的屏幕截图；安全问题请依照 [SECURITY.md](SECURITY.md) 报告。
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <img src="public/wechat-qr.png" width="220" alt="微信赞赏码" /><br/>
-        <strong>💚 微信支付 (WeChat Pay)</strong>
-      </td>
-      <td align="center">
-        <img src="public/alipay-qr.png" width="220" alt="支付宝赞赏码" /><br/>
-        <strong>💙 支付宝 (Alipay)</strong>
-      </td>
-    </tr>
-  </table>
-  <p><em>每一份支持都是作者持续精进与打磨的最佳动力，非常感谢您的认可与陪伴！✨</em></p>
-</div>
+## 致谢与许可
 
----
+基于 React、TypeScript、Vite、Tailwind CSS、Electron、Lucide、react-markdown、Prism、KaTeX、html-to-image 和 jsPDF 等开源项目构建。第三方组件保留各自许可。
 
-## 🤝 参与贡献 (Contributing)
+项目采用 [MIT License](LICENSE)，作者 Crazyer-Flove。欢迎使用、研究与改进。
 
-热烈欢迎提交 Pull Request、报告 Bug 或提出新功能建议！
+<details>
+<summary>赏赞作者</summary>
 
-1. Fork 本仓库 (`https://github.com/Crazyer-Flove/FloveNote`)
-2. 新建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的修改 (`git commit -m 'feat: Add some AmazingFeature'`)
-4. 推送至该分支 (`git push origin feature/AmazingFeature`)
-5. 新建 Pull Request
+如果 Stillnote 对你有帮助，可以自愿支持后续维护。
 
----
+| 微信 | 支付宝 |
+| --- | --- |
+| <img src="public/wechat-qr.jpg" width="220" alt="微信赏赞二维码" /> | <img src="public/alipay-qr.jpg" width="220" alt="支付宝赏赞二维码" /> |
 
-## 📄 开源许可证 (License)
-
-本项目基于 [MIT License](LICENSE) 协议开源。你可以自由地使用、修改、分发与部署本项目。
-
-<div align="center">
-  <br />
-  <p>Made with ❤️ by <a href="https://github.com/Crazyer-Flove">Crazyer-Flove</a> & Open Source Community</p>
-</div>
+</details>
