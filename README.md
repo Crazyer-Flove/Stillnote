@@ -4,6 +4,7 @@
   <p><strong>留住一闪而过的想法。</strong></p>
   <p>A quiet, local-first Markdown notebook.</p>
   <p>
+    <a href="https://stillnote-crazyer.vercel.app">在线使用</a> ·
     <a href="https://github.com/Crazyer-Flove/Stillnote/releases/latest">下载 Windows 版</a> ·
     <a href="docs/user-guide.md">使用指南</a> ·
     <a href="docs/development.md">开发与打包</a> ·
