@@ -40,7 +40,9 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const { tags, activeCategory, activeTag, workspaces = [], activeWorkspaceId = 'default', workspaceCounts = {}, isMobileOpen, onCloseMobile } = props;
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(()=>{try{return localStorage.getItem('stillnote_sidebar_collapsed')==='true';}catch{return false;}});
+  React.useEffect(()=>{try{localStorage.setItem('stillnote_sidebar_collapsed',String(collapsed));}catch{}},[collapsed]);
+  const [sidebarWidth,setSidebarWidth]=useState(()=>{try{return Math.max(210,Math.min(360,Number(localStorage.getItem('stillnote_sidebar_width'))||260));}catch{return 260;}});
   const [workspaceMenu, setWorkspaceMenu] = useState(false);
   const [tools, setTools] = useState(false);
   const mobileRef = useDialog(isMobileOpen, onCloseMobile);
@@ -51,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
     { id: 'favorites', label: '收藏笔记', icon: Star, count: props.favoriteNotesCount },
     { id: 'pinned', label: '置顶笔记', icon: Pin, count: props.pinnedNotesCount },
   ] as const;
-  const content = (mobile = false) => <aside className={`sn-sidebar ${collapsed && !mobile ? 'is-collapsed' : ''}`} aria-label="主导航">
+  const content = (mobile = false) => <aside style={!mobile&&!collapsed?{width:sidebarWidth}:undefined} className={`sn-sidebar ${collapsed && !mobile ? 'is-collapsed' : ''}`} aria-label="主导航">
     <div className="sn-brand-row">
       <a href="#" onClick={event => { event.preventDefault(); go(() => { props.onSelectCategory('all'); props.onSelectTag(null); }); }} className="sn-brand" aria-label="Stillnote 首页"><span className="sn-brand-mark"><img src="/stillnote-mark.png" alt="" /></span>{(!collapsed || mobile) && <span>Stillnote</span>}</a>
       <button className="sn-icon-button sn-collapse" aria-label={mobile ? '关闭导航' : collapsed ? '展开导航' : '收起导航'} onClick={() => mobile ? onCloseMobile() : setCollapsed(!collapsed)}>{mobile ? <X size={17} /> : collapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}</button>
@@ -66,13 +68,8 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
     </div>
     <nav className="sn-nav">
       {nav.map(item => <button key={item.id} onClick={() => go(() => { props.onSelectCategory(item.id); props.onSelectTag(null); })} className={`sn-nav-item ${activeCategory === item.id && !activeTag ? 'is-active' : ''}`} aria-current={activeCategory === item.id && !activeTag ? 'page' : undefined} title={item.label}><item.icon size={19} />{(!collapsed || mobile) && <><span>{item.label}</span><small>{item.count || ''}</small></>}</button>)}
-      <button className={`sn-nav-item ${activeTag ? 'is-active' : ''}`} onClick={() => go(props.onOpenTagManager)} title="标签管理"><Tag size={19} />{(!collapsed || mobile) && <span>标签</span>}</button>
     </nav>
-    <section className="sn-tags" aria-label="我的标签">
-      {(!collapsed || mobile) && <div className="sn-section-label"><span>我的标签</span><button className="sn-icon-button" onClick={() => go(props.onOpenTagManager)} aria-label="管理标签"><Plus size={17} /></button></div>}
-      <div className="sn-tag-list">{tags.map(tag => <button key={tag.name} title={`筛选标签 ${tag.name}，可拖入笔记归类`} className={`sn-tag-link ${activeTag === tag.name ? 'is-active' : ''}`} onClick={() => go(() => { props.onSelectCategory('all'); props.onSelectTag(tag.name); })} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const id = event.dataTransfer.getData('text/plain'); if (id) props.onAddTagToNote?.(id, tag.name); }}><Hash size={16} />{(!collapsed || mobile) && <><span>{tag.name}</span><small>{tag.count}</small></>}</button>)}</div>
-      {!tags.length && (!collapsed || mobile) && <p className="sn-tag-empty">在笔记中写下 #标签，<br />让想法慢慢有迹可循。</p>}
-    </section>
+    <div className="sn-sidebar-spacer" />
     <footer className="sn-sidebar-footer">
       <button className="sn-nav-item" title="导出笔记" onClick={() => go(props.onOpenExportModal)}><Download size={18} />{(!collapsed || mobile) && <span>导出笔记</span>}</button>
       <button className="sn-nav-item" title="更多工具" aria-expanded={tools} onClick={() => setTools(!tools)}><Command size={18} />{(!collapsed || mobile) && <><span>更多工具</span><ChevronDown size={13} /></>}</button>
@@ -86,6 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
       </div>}
       <button className="sn-nav-item sn-settings-link" title="系统设置" onClick={() => go(props.onOpenSettings)}><Settings size={18} />{(!collapsed || mobile) && <span>系统设置</span>}</button>
     </footer>
+    {!mobile&&!collapsed&&<div role="separator" aria-label="调整侧边栏宽度" aria-orientation="vertical" tabIndex={0} className="sn-sidebar-resize" onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const width=Math.max(210,Math.min(360,sidebarWidth+(e.key==='ArrowRight'?10:-10)));setSidebarWidth(width);try{localStorage.setItem('stillnote_sidebar_width',String(width));}catch{}}}} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId)){const width=Math.max(210,Math.min(360,e.clientX-e.currentTarget.parentElement!.getBoundingClientRect().left));setSidebarWidth(width);try{localStorage.setItem('stillnote_sidebar_width',String(width));}catch{}}}} onPointerUp={e=>e.currentTarget.releasePointerCapture(e.pointerId)} />}
   </aside>;
   return <><div className="sn-desktop-sidebar">{content()}</div>{isMobileOpen && <div className="sn-mobile-overlay"><button aria-label="关闭导航遮罩" className="sn-mobile-backdrop" onClick={onCloseMobile} /><div ref={mobileRef} role="dialog" aria-modal="true" aria-label="导航菜单" tabIndex={-1}>{content(true)}</div></div>}</>;
 };

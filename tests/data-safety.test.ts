@@ -50,7 +50,7 @@ test('quota errors report failure and preserve the previous persisted version', 
 
 class Directory {
   kind = 'directory';
-  entries = new Map<string, Directory | { kind: 'file'; name: string; getFile: () => Promise<{ text: () => Promise<string>; lastModified: number }> }>();
+  entries = new Map<string, Directory | { kind: 'file'; name: string; getFile: () => Promise<{ text: () => Promise<string>; arrayBuffer:()=>Promise<ArrayBuffer>; lastModified: number }> }>();
   constructor(public name: string) {}
   async getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<Directory> {
     if (!this.entries.has(name) && options?.create) this.entries.set(name, new Directory(name));
@@ -66,13 +66,23 @@ class Directory {
         if (!file || file instanceof Directory) throw new Error('NotFound');
         return file.getFile();
       },
-      createWritable: async () => ({ write: async (content: string) => {
-        this.entries.set(name, { kind: 'file', name, getFile: async () => ({ text: async () => content, lastModified: 2 }) });
+      createWritable: async () => ({ write: async (content: string|Blob) => {
+        const blob=content instanceof Blob?content:new Blob([content]);
+        this.entries.set(name, { kind: 'file', name, getFile: async () => ({ text: async () => blob.text(), arrayBuffer:()=>blob.arrayBuffer(), lastModified: 2 }) });
       }, close: async () => {} })
     };
   }
   async *values() { yield* this.entries.values(); }
 }
+
+test('one root holds Notes Images and Backups and imported images remain portable',async()=>{
+ const root=new Directory('vault');const source={...note,content:'![tiny](data:image/png;base64,AQID)'};
+ const plan=await previewWorkspaceWrite(root,[source]);assert.equal(root.entries.size,0);
+ const result=await syncWorkspaceToDirectoryHandle(root,[source],undefined,plan);assert.equal(result.success,true);assert.equal(result.imagesCount,1);
+ assert.ok(root.entries.has('Notes'));assert.ok(root.entries.has('Images'));assert.ok(root.entries.has('Backups'));
+ const imported=await readNotesFromDirectoryHandle(root);assert.equal(imported[0].content,source.content);
+ const again=await previewWorkspaceWrite(root,[source]);assert.equal(again.entries.find(e=>e.directory==='images')?.status,'unchanged');
+});
 test('directory write produces a restorable backup and scans only note files', async () => {
   const root = new Directory('test');
   const result = await syncWorkspaceToDirectoryHandle(root, [note]);

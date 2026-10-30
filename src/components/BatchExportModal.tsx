@@ -159,9 +159,6 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
                     </p>
                     <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 dark:text-zinc-500">
                       <span>{new Date(note.createdAt).toLocaleDateString('zh-CN')}</span>
-                      {note.tags.length > 0 && (
-                        <span>· {note.tags.map((t) => `#${t}`).join(' ')}</span>
-                      )}
                     </div>
                   </div>
                 </div>

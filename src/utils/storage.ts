@@ -1,4 +1,5 @@
 import { normalizePreferences } from './product';
+import { simplifyWorkspaces } from './workspaceMigration';
 import { Note, AppSettings, Workspace } from '../types';
 import { extractTags } from './markdownUtils';
 
@@ -19,26 +20,6 @@ export const DEFAULT_WORKSPACES: Workspace[] = [
     backupPath: '~/Documents/Stillnote/Default/Backups',
     description: '系统主笔记与生活随记库',
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
-  },
-  {
-    id: 'work',
-    name: '工作与项目',
-    path: '~/Documents/Stillnote/Work',
-    notesPath: '~/Documents/Stillnote/Work/Notes',
-    mediaPath: '~/Documents/Stillnote/Work/.src',
-    backupPath: '~/Documents/Stillnote/Work/Backups',
-    description: '职业工作纪要、项目待办与架构笔记',
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 15,
-  },
-  {
-    id: 'study',
-    name: '研习与灵感',
-    path: '~/Documents/Stillnote/Study',
-    notesPath: '~/Documents/Stillnote/Study/Notes',
-    mediaPath: '~/Documents/Stillnote/Study/.src',
-    backupPath: '~/Documents/Stillnote/Study/Backups',
-    description: '读书笔记、论文摘要与创意灵感',
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 7,
   },
 ];
 
@@ -67,6 +48,8 @@ export function getStoredNotes(): Note[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || !parsed.every(note => note && typeof note.content === 'string' && Array.isArray(note.tags))) throw new Error('Invalid notes');
     const loadedNotes = parsed;
+    const rawSettings=localStorage.getItem('flovenote_settings_v1');
+    if(rawSettings){try{const oldSettings=JSON.parse(rawSettings);if(oldSettings.workspaceMigration!==2){const upgraded=simplifyWorkspaces(loadedNotes,{...DEFAULT_SETTINGS,...oldSettings});if(saveLibraryToStorage(upgraded.notes,upgraded.settings))return cleanupExpiredTrashNotes(upgraded.notes);}}catch{/* Invalid preferences must not hide readable notes. */}}
     return cleanupExpiredTrashNotes(loadedNotes);
   } catch (err) {
     storageReadError = true;

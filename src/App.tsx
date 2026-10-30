@@ -24,8 +24,6 @@ import { Sidebar } from './components/Sidebar';
 import { TimelineFeed } from './components/TimelineFeed';
 const ImportBackupModal = lazy(() => import('./components/ImportBackupModal').then(module => ({ default: module.ImportBackupModal })));
 const NoteEditorModal = lazy(() => import('./components/NoteEditorModal').then(module => ({ default: module.NoteEditorModal })));
-const TagManagerModal = lazy(() => import('./components/TagManagerModal').then(module => ({ default: module.TagManagerModal })));
-const TagCloudModal = lazy(() => import('./components/TagCloudModal').then(module => ({ default: module.TagCloudModal })));
 const BatchExportModal = lazy(() => import('./components/BatchExportModal').then(module => ({ default: module.BatchExportModal })));
 const ResourceManagerModal = lazy(() => import('./components/ResourceManagerModal').then(module => ({ default: module.ResourceManagerModal })));
 const SettingsModal = lazy(() => import('./components/SettingsModal').then(module => ({ default: module.SettingsModal })));
@@ -330,7 +328,7 @@ export default function App() {
         if (filterState.category === 'favorites' && !note.isFavorite) return false;
 
         // Tag filter
-        if (filterState.selectedTag && !note.tags.includes(filterState.selectedTag)) {
+        if (false) {
           return false;
         }
 
@@ -358,7 +356,7 @@ export default function App() {
           const kw = filterState.searchKeyword.toLowerCase().trim();
           const matchContent = note.content.toLowerCase().includes(kw);
           const matchTags = note.tags.some((t) => t.toLowerCase().includes(kw));
-          if (!matchContent && !matchTags) return false;
+          if (!matchContent) return false;
         }
 
         return true;
@@ -705,7 +703,7 @@ export default function App() {
         filterState={filterState}
         viewMode={viewMode}
         allTags={allTagNames}
-        onFilterChange={(updates) => setFilterState((prev) => ({ ...prev, ...updates }))}
+        onFilterChange={(updates) => setFilterState((prev) => ({ ...prev, ...updates, selectedTag: null }))}
         onViewModeChange={setViewMode}
         onPublishNote={handleCreateNote}
         onEditNote={handleEditNoteCard}
@@ -812,32 +810,6 @@ export default function App() {
       />
       )}
 
-      {isTagManagerOpen && (
-      <TagManagerModal
-        isOpen={isTagManagerOpen}
-        onClose={() => setIsTagManagerOpen(false)}
-        tags={allTagInfos}
-        onRenameTag={handleRenameTag}
-        onMergeTags={handleMergeTags}
-        onDeleteTag={handleDeleteTag}
-        onDeleteAllTags={handleDeleteAllTags}
-        onOpenTagCloud={() => setIsTagCloudModalOpen(true)}
-      />
-      )}
-
-      {isTagCloudModalOpen && (
-      <TagCloudModal
-        isOpen={isTagCloudModalOpen}
-        onClose={() => setIsTagCloudModalOpen(false)}
-        tags={allTagInfos}
-        notes={workspaceNotes}
-        activeTag={filterState.selectedTag}
-        onSelectTag={(tag) => setFilterState((prev) => ({ ...prev, selectedTag: tag }))}
-        onOpenTagManager={() => setIsTagManagerOpen(true)}
-        onShowToast={addToast}
-      />
-      )}
-
       {isExportModalOpen && (
       <BatchExportModal
         isOpen={isExportModalOpen}
@@ -899,7 +871,12 @@ export default function App() {
             }))
           }
           onDeleteWorkspace={wsId => {
-            if (notes.some(note => inWorkspace(note, wsId))) { addToast('此工作区仍有笔记或回收站记录，请先处理后再移除。', 'info'); return; }
+            if(wsId==='default')return;
+            const nextNotes=notesRef.current.map(note=>inWorkspace(note,wsId)?{...note,workspaceId:'default'}:note);
+            const nextSettings={...settings,workspaces:(settings.workspaces||[]).filter(w=>w.id!==wsId),activeWorkspaceId:settings.activeWorkspaceId===wsId?'default':settings.activeWorkspaceId};
+            if(!saveLibraryToStorage(nextNotes,nextSettings)){addToast('工作区移除失败，原始数据保持不变','error');return;}
+            notesRef.current=nextNotes;setNotes(nextNotes);setSettings(nextSettings);
+            addToast('工作区已移除，其中的笔记已移入默认工作区','success');
             setSettings(previous => ({ ...previous, workspaces: (previous.workspaces || []).filter(workspace => workspace.id !== wsId), activeWorkspaceId: previous.activeWorkspaceId === wsId ? 'default' : previous.activeWorkspaceId }));
           }}
           />

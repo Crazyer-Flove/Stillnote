@@ -413,68 +413,6 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
             <span>日期标题</span>
           </button>
 
-          {/* Tag Auto-picker */}
-          <div className="relative">
-            <button
-              onClick={() => setShowTagDropdown(!showTagDropdown)}
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-600 flex items-center gap-1 text-xs font-medium"
-              title="插入或关联标签 (#tag)"
-            >
-              <Hash className="w-4 h-4 text-indigo-500" />
-              <span>标签</span>
-            </button>
-
-            {showTagDropdown && (
-              <div className="absolute top-full left-0 mt-1 z-30 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl p-3 min-w-[200px] max-h-60 overflow-y-auto">
-                <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold mb-1.5">
-                  快速选择或输入标签：
-                </p>
-
-                {/* Custom input box */}
-                <div className="flex items-center gap-1 mb-2">
-                  <input
-                    type="text"
-                    value={newCustomTagInput}
-                    onChange={(e) => setNewCustomTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddTag(newCustomTagInput);
-                      }
-                    }}
-                    placeholder="输入新标签..."
-                    className="flex-1 min-w-0 px-2 py-1 text-xs border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleAddTag(newCustomTagInput)}
-                    className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 hover:bg-indigo-700 transition-colors"
-                  >
-                    添加
-                  </button>
-                </div>
-
-                {allExistingTags.length > 0 && (
-                  <div className="space-y-0.5 border-t border-slate-100 dark:border-zinc-800 pt-1.5">
-                    {allExistingTags.map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => handleAddTag(t)}
-                        className="w-full text-left px-2 py-1 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-zinc-200 rounded-lg flex items-center justify-between"
-                      >
-                        <span>#{t}</span>
-                        {currentTags.includes(t) && (
-                          <span className="text-[10px] text-indigo-500 font-medium">已添加</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Export Image Button */}
           {content.trim() && (
             <button
@@ -486,63 +424,6 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
               <span>导出精美图片</span>
             </button>
           )}
-        </div>
-
-        {/* Note Tags Bar (Interactive Tag Pills Bar) */}
-        <div className="px-4 py-2 bg-slate-50/80 dark:bg-zinc-900/60 border-b border-slate-200/60 dark:border-zinc-800 flex items-center gap-2 flex-wrap shrink-0 text-xs">
-          <span className="text-slate-400 dark:text-zinc-500 font-medium flex items-center gap-1 shrink-0">
-            <Hash className="w-3.5 h-3.5 text-indigo-500" />
-            <span>关联标签:</span>
-          </span>
-
-          {currentTags.length === 0 ? (
-            <span className="text-slate-400 dark:text-zinc-500 text-[11px] italic">
-              （暂无关联标签，点击上方「标签」或在文本中打 #标签 自动解析）
-            </span>
-          ) : (
-            currentTags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-100/80 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/40 font-medium shadow-2xs group"
-              >
-                <span>#{tag}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTag(tag)}
-                  className="hover:text-rose-600 dark:hover:text-rose-400 rounded-full p-0.5 transition-colors"
-                  title={`移除标签 #${tag}`}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))
-          )}
-
-          {/* Inline Quick Add Tag Input */}
-          <div className="flex items-center gap-1.5 ml-auto shrink-0">
-            <input
-              type="text"
-              placeholder="+ 打标签 (按回车)"
-              value={newCustomTagInput}
-              onChange={(e) => setNewCustomTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddTag(newCustomTagInput);
-                }
-              }}
-              className="px-2.5 py-1 text-xs bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-28 sm:w-36 transition-all"
-            />
-            {newCustomTagInput.trim() && (
-              <button
-                type="button"
-                onClick={() => handleAddTag(newCustomTagInput)}
-                className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 hover:bg-indigo-700 transition-colors"
-              >
-                添加
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Editor Typora WYSIWYG Canvas */}

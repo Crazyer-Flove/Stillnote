@@ -791,7 +791,7 @@ function renderRichText(
     return children;
   }
 
-  const regex = /\[\[([^\]]+)\]\]|(?:^|\s)#([a-zA-Z0-9_\u4e00-\u9fa5\/-]+)(?=\s|$|[.,!?;:])/g;
+  const regex = /\[\[([^\]]+)\]\]/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match;

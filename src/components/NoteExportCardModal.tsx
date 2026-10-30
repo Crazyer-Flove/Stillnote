@@ -85,7 +85,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
   const [showWatermark, setShowWatermark] = useState(typeof previous.watermark==='boolean'?previous.watermark:true);
   const [showDate, setShowDate] = useState(typeof previous.date==='boolean'?previous.date:true);
   const [showStats, setShowStats] = useState(typeof previous.stats==='boolean'?previous.stats:true);
-  const [showTags, setShowTags] = useState(typeof previous.tags==='boolean'?previous.tags:true);
+  const showTags = false;
   const [statMode, setStatMode] = useState<'cleanChars' | 'words' | 'rawLength'>('cleanChars');
   const [cardFontSize, setCardFontSize] = useState<'compact' | 'standard' | 'large'>(['compact','standard','large'].includes(previous.fontSize)?previous.fontSize:'standard');
   const [cardWidth, setCardWidth] = useState<'standard' | 'wide'>(previous.width==='wide'?'wide':'standard');
@@ -479,15 +479,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
                   <span>显示字数统计徽章</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showTags}
-                    onChange={(e) => setShowTags(e.target.checked)}
-                    className="rounded text-indigo-600 accent-indigo-600"
-                  />
-                  <span>显示笔记分类标签</span>
-                </label>
+
 
                 <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-300 cursor-pointer">
                   <input

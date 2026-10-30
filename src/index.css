@@ -439,3 +439,27 @@ button:disabled { cursor: not-allowed; }
 
 .sn-settings-dialog :is(header,nav,footer), .sn-code-block, .sn-table { border-color:var(--sn-line); }
 .sn-settings-tabs button:hover { background:var(--sn-soft); }
+/* Layout: shrink content, wrap controls, keep code/tables horizontally scrollable. */
+.sn-sidebar { position:relative; overflow:visible; max-width:85vw; }
+.sn-sidebar-spacer { flex:1; min-height:24px; }
+.sn-collapse { opacity:1; right:0; }
+.sn-sidebar-resize { position:absolute; top:0; bottom:0; right:-4px; width:8px; cursor:col-resize; touch-action:none; z-index:20; }
+.sn-sidebar-resize:hover,.sn-sidebar-resize:focus-visible { background:var(--sn-accent); opacity:.5; }
+.sn-desktop-sidebar { min-width:0; }
+.sn-sidebar-footer { flex-shrink:0; }
+.stillnote-app > main,.sn-journal,.sn-note,.sn-note-body,.sn-note-body .prose { min-width:0; max-width:100%; }
+.sn-journal { padding-inline:clamp(16px,3vw,48px); }
+.sn-note-body,.sn-editor-dialog,.sn-settings-dialog { overflow-wrap:anywhere; }
+.sn-note-body img,.sn-editor-dialog img { max-width:100%; height:auto; }
+.sn-note-body pre,.sn-note-body .sn-table { max-width:100%; overflow-x:auto; }
+.sn-settings-content p { overflow-wrap:anywhere; }
+.sn-topbar,.sn-composer-toolbar,.sn-feed-tools { flex-wrap:wrap; }
+.sn-search { flex-basis:240px; }
+.sn-editor-dialog { max-height:94dvh; }
+.sn-sidebar { overflow-y:auto; overflow-x:visible; }
+@media (min-width:768px) { .sn-sidebar.is-collapsed { width:76px!important; } .sn-desktop-sidebar .sn-sidebar.is-collapsed .sn-brand-row{justify-content:flex-start;} .is-collapsed .sn-collapse{right:-12px;top:12px;} }
+@media (max-width:767px) { .sn-editor-dialog,.sn-settings-dialog { height:94dvh!important; max-height:94dvh; } .sn-introduction h1{font-size:clamp(24px,6vw,32px);} .sn-composer-tools{flex-wrap:wrap;} .sn-mobile-overlay .sn-sidebar{width:min(290px,85vw)!important;} }
+@media (max-height:650px) { .sn-sidebar{padding-top:12px;padding-bottom:12px;} .sn-brand-row{margin-bottom:6px;height:54px;} .sn-workspace{margin-bottom:8px;} .sn-nav{padding-bottom:12px;} }
+.sn-sidebar { overflow-x:hidden; }
+.sn-sidebar-resize { right:0; width:6px; }
+@media (min-width:768px) { .is-collapsed .sn-collapse { right:0; } }

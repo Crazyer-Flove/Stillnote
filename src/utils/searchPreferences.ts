@@ -4,7 +4,7 @@ export function cleanFilter(value: unknown): FilterState | null {
   if (!value || typeof value !== 'object') return null;
   const v = value as FilterState;
   if (!['all','pinned','favorites','trash'].includes(v.category) || !['newest','oldest'].includes(v.sortBy) || typeof v.searchKeyword !== 'string') return null;
-  const result: FilterState = {category:v.category,sortBy:v.sortBy,searchKeyword:v.searchKeyword.slice(0,300),selectedTag:typeof v.selectedTag==='string'?v.selectedTag:null};
+  const result: FilterState = {category:v.category,sortBy:v.sortBy,searchKeyword:v.searchKeyword.slice(0,300),selectedTag:null};
   for (const key of ['dateFilter','weekFilter','monthFilter'] as const) if (typeof v[key]==='string' && ({dateFilter:/^\d{4}-\d{2}-\d{2}$/,weekFilter:/^\d{4}-W\d{2}$/,monthFilter:/^\d{4}-\d{2}$/}[key]).test(v[key]!)) result[key]=v[key];
   return result;
 }

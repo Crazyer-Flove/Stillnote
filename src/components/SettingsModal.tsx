@@ -1,3 +1,4 @@
+import { desktopDirectory } from '../utils/desktopDirectory';
 import { NOTE_TEMPLATES } from '../utils/product';
 import { WritePreviewModal } from './WritePreviewModal';
 import { useDialog } from '../hooks/useDialog';
@@ -112,6 +113,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Directory Handle in state
   const [currentDirHandle, setCurrentDirHandle] = useState<any>(activeDirHandle || null);
+  React.useEffect(()=>{let active=true;setCurrentDirHandle(activeDirHandle||null);const initialPaths=deriveSubPaths(activeWorkspace.path||'');setStoragePath(initialPaths.notesPath);setMediaStoragePath(initialPaths.mediaPath);setBackupPath(initialPaths.backupPath);window.stillnoteDesktop?.getFolder(activeWorkspace.id).then(folder=>{if(active&&folder){const handle=desktopDirectory(folder);setCurrentDirHandle(handle);onSaveDirHandle?.(handle);const paths=deriveSubPaths(folder.path);setRootWorkingFolder(paths.rootPath);setStoragePath(paths.notesPath);setMediaStoragePath(paths.mediaPath);setBackupPath(paths.backupPath);}}).catch(()=>onShowToast('存储文件夹暂时不可用，请重新选择','info'));return()=>{active=false;};},[activeWorkspace.id]);
   const [writePreview, setWritePreview] = useState<{ handle: any; plan: DirectoryWritePlan } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isImportingFromDir, setIsImportingFromDir] = useState(false);
@@ -124,7 +126,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Root Working Folder picker & auto-configuration
   const handlePickRootWorkingFolder = async () => {
     try {
-      const result = await pickLocalDirectory();
+      const result = await pickLocalDirectory(activeWorkspace.id);
       if (result) {
         setRootWorkingFolder(result.derivedPaths.rootPath);
         setStoragePath(result.derivedPaths.notesPath);
@@ -203,7 +205,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       let handle = currentDirHandle;
       if (!handle && isFileSystemAccessSupported()) {
-        const picked = await pickLocalDirectory();
+        const picked = await pickLocalDirectory(activeWorkspace.id);
         if (!picked) return;
         if (picked) {
           handle = picked.handle;
@@ -243,7 +245,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       let handle = currentDirHandle;
       if (!handle && isFileSystemAccessSupported()) {
-        const picked = await pickLocalDirectory();
+        const picked = await pickLocalDirectory(activeWorkspace.id);
         if (!picked) return;
         if (picked) {
           handle = picked.handle;
@@ -272,7 +274,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleCreateWorkspace = () => {
     const name=newWsName.trim();if(!name)return;
-    const paths=deriveSubPaths(`~/Documents/Stillnote/${name}`);
+    if((settings.workspaces||[]).some(w=>w.name===name)){onShowToast('已存在同名工作区','info');return;}
+    const paths=deriveSubPaths('');
     const workspace:Workspace={id:crypto.randomUUID(),name,path:paths.rootPath,notesPath:paths.notesPath,mediaPath:paths.mediaPath,backupPath:paths.backupPath,createdAt:Date.now()};
     onUpdateSettings({...settings,workspaces:[...(settings.workspaces||[]),workspace],activeWorkspaceId:workspace.id});
     setNewWsName('');onShowToast('工作区已创建，尚未绑定磁盘文件夹','success');
@@ -330,11 +333,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <p className="sn-caption">自动保存保护正文；每次编辑会话保留起始版本，最多保存 50 个历史版本。</p>
         </>}
         {activeTab==='appearance' && <><h3>外观</h3>{desktopInfo&&<div className="sn-setting-card"><h4>Windows 桌面版 · {desktopInfo.version}</h4><p>数据位置：{desktopInfo.dataPath}</p><button className="sn-primary" disabled={shortcutBusy} onClick={createShortcut}>{shortcutBusy?'正在创建…':'创建桌面快捷方式'}</button><p className="sn-caption">仅在点击后创建；免安装版请先将 EXE 放到固定位置。</p></div>}<label className="sn-field">显示模式<select aria-label="显示模式" value={settings.themeMode||'light'} onChange={e=>onUpdateSettings({...settings,themeMode:e.target.value as AppSettings['themeMode']})}><option value="light">浅色</option><option value="dark">深色</option><option value="system">跟随系统</option></select></label><p>代码块与表格自动适配明暗模式。代码保留语法高亮、语言标识和复制。</p><p className="sn-caption">导出卡片的极简白、暖纸和深色样式可在导出预览中选择。</p></>}
-        {activeTab==='workspaces' && <><h3>工作区</h3><p className="sn-caption">工作区是笔记的分类空间，是否绑定磁盘文件夹可单独设置。</p>{(settings.workspaces||[]).map(w=><div className="sn-setting-card" key={w.id}><strong>{w.name}</strong><span>{workspaceCounts[w.id]||0} 条笔记</span>{w.id===activeWorkspace.id?<span>当前工作区</span>:<button className="sn-text-button" onClick={()=>onSwitchWorkspace?.(w.id)}>切换</button>}{w.id!=='default'&&<button className="sn-text-button" onClick={()=>{if(window.confirm('移除此工作区？请先确认其中的笔记已迁移或备份。'))onDeleteWorkspace?.(w.id);}}>移除工作区</button>}</div>)}<label className="sn-field">新工作区名称<input value={newWsName} maxLength={60} onChange={e=>setNewWsName(e.target.value)}/></label><button className="sn-primary" disabled={!newWsName.trim()} onClick={handleCreateWorkspace}>创建工作区</button></>}
-        {activeTab==='paths' && <><h3>文件夹存储 · {activeWorkspace.name}</h3><p>笔记首先保存在浏览器中，文件夹需要授权并手动写入。刷新后需要重新授权。</p><div className="sn-setting-card"><p>授权状态：{currentDirHandle?'本次会话已授权':'尚未授权'}</p><p>本工作区最近写入记录：{lastWriteAt?new Date(lastWriteAt).toLocaleString():'暂无记录'}</p><p>文件夹：{currentDirHandle?.name||'尚未选择'}</p></div><button className="sn-primary" onClick={handlePickRootWorkingFolder}>选择或重新授权文件夹</button><div className="flex flex-wrap gap-3"><button className="sn-text-button" disabled={isSyncing||isImportingFromDir} onClick={handleSyncToLocalFolder}>预览并写入文件夹</button><button className="sn-text-button" disabled={isSyncing||isImportingFromDir} onClick={handleImportFromLocalFolder}>扫描导入 Markdown</button></div><details><summary>高级目录设置</summary><p className="sn-caption">路径为结构示意；写入使用末级目录名。实际文件夹以浏览器授权为准。</p>{[['笔记目录',storagePath,setStoragePath],['图片目录',mediaStoragePath,setMediaStoragePath],['备份目录',backupPath,setBackupPath]].map(([label,value,setter])=><label className="sn-field" key={String(label)}>{String(label)}<input value={String(value)} onChange={e=>(setter as (v:string)=>void)(e.target.value)}/></label>)}<button className="sn-text-button" onClick={handleSavePaths}>保存目录配置</button></details></>}
+        {activeTab==='workspaces' && <><h3>工作区</h3><p className="sn-caption">工作区是笔记的分类空间，是否绑定磁盘文件夹可单独设置。</p>{(settings.workspaces||[]).map(w=><div className="sn-setting-card" key={w.id}><strong>{w.name}</strong><span>{workspaceCounts[w.id]||0} 条笔记</span>{w.id===activeWorkspace.id?<span>当前工作区</span>:<button className="sn-text-button" onClick={()=>onSwitchWorkspace?.(w.id)}>切换</button>}{w.id!=='default'&&<button className="sn-text-button" onClick={()=>{if(window.confirm('移除此工作区？其中的笔记及回收站记录将移入默认工作区，磁盘文件保留。'))onDeleteWorkspace?.(w.id);}}>移除工作区</button>}</div>)}<label className="sn-field">新工作区名称<input value={newWsName} maxLength={60} onChange={e=>setNewWsName(e.target.value)}/></label><button className="sn-primary" disabled={!newWsName.trim()} onClick={handleCreateWorkspace}>创建工作区</button></>}
+        {activeTab==='paths' && <><h3>文件夹存储 · {activeWorkspace.name}</h3><p>只需选择一个根文件夹，笔记、图片与备份将统一保存在其 Notes、Images、Backups 子目录。桌面版会记住路径；网页版重新打开后需重新授权。</p><div className="sn-setting-card"><p>授权状态：{currentDirHandle?'本次会话已授权':'尚未授权'}</p><p>本工作区最近写入记录：{lastWriteAt?new Date(lastWriteAt).toLocaleString():'暂无记录'}</p><p>文件夹：{currentDirHandle?.nativePath||currentDirHandle?.name||'尚未选择'}</p></div><button className="sn-primary" onClick={handlePickRootWorkingFolder}>选择或重新授权文件夹</button><div className="flex flex-wrap gap-3"><button className="sn-text-button" disabled={isSyncing||isImportingFromDir} onClick={handleSyncToLocalFolder}>预览并写入文件夹</button><button className="sn-text-button" disabled={isSyncing||isImportingFromDir} onClick={handleImportFromLocalFolder}>扫描导入 Markdown</button></div><div className="sn-setting-card"><p>笔记：Notes/</p><p>图片：Images/</p><p>备份：Backups/</p><p className="sn-caption">先预览再写入；不会自动删除原目录里的文件。</p></div></>}
         {activeTab==='backups' && <><h3>备份与恢复</h3><p>全量备份包含所有工作区的笔记、历史、笔记内图片和界面偏好；不包含 API 密钥及独立图片资源库。</p><p role="status">最近发起全量备份：{lastBackupAt?new Date(lastBackupAt).toLocaleString():'暂无记录'}</p><p className="sn-caption">下载由浏览器完成，请确认文件已保存。这里的时间不表示已验证磁盘文件。</p><button className="sn-primary" onClick={onExportBackup}>下载全量备份 JSON</button><label className="sn-field">导入或恢复备份<input type="file" accept=".json,application/json" onChange={onImportBackup}/></label><p>导入前可预览重复和冲突，选择恢复结构或加入当前工作区。清理浏览器数据前请先备份。</p></>}
         {activeTab==='trash' && <><h3>回收站</h3><p>恢复笔记或确认永久删除。建议定期备份。</p>{trashNotes.map(n=><div className="sn-setting-card" key={n.id}><p>{n.content.slice(0,100)||'空白笔记'}</p><button className="sn-text-button" onClick={()=>onRestoreNote?.(n.id)}>恢复</button><button className="sn-text-button" onClick={()=>{if(window.confirm('永久删除这条笔记？此操作不可恢复。'))onPermanentDeleteNote?.(n.id);}}>永久删除</button></div>)}{!trashNotes.length&&<p>回收站为空。</p>}</>}
-        {activeTab==='help' && <><h3>开始记录</h3><ol className="list-decimal pl-5 space-y-3"><li>在首页写下想法，点击“记下”；用 #标签 分类。</li><li>完整编辑器支持 Markdown、源码和实时预览；Ctrl / ⌘ + Enter 保存。</li><li>搜索可与标签和日期组合，并保存为常用筛选。</li><li>内容导出用于阅读和分享，全量备份用于迁移和恢复。</li></ol><h4>从一个模板开始</h4><div className="flex flex-wrap gap-3">{NOTE_TEMPLATES.map(t=><button className="sn-text-button" key={t.name} onClick={()=>{onOpenTemplate?.(t.content);onClose();}}>{t.name}</button>)}</div><p className="sn-caption">模板只打开草稿，保存前不会添加笔记。更多技术说明见项目 README。</p></>}
+        {activeTab==='help' && <><h3>开始记录</h3><ol className="list-decimal pl-5 space-y-3"><li>在首页写下想法，点击“记下”；按工作区整理。</li><li>完整编辑器支持 Markdown、源码和实时预览；Ctrl / ⌘ + Enter 保存。</li><li>搜索可与日期组合，并保存为常用筛选。</li><li>内容导出用于阅读和分享，全量备份用于迁移和恢复。</li></ol><h4>从一个模板开始</h4><div className="flex flex-wrap gap-3">{NOTE_TEMPLATES.map(t=><button className="sn-text-button" key={t.name} onClick={()=>{onOpenTemplate?.(t.content);onClose();}}>{t.name}</button>)}</div><p className="sn-caption">模板只打开草稿，保存前不会添加笔记。更多技术说明见项目 README。</p></>}
         </section>
       </div>
       <footer className="p-4 border-t text-right"><button className="sn-primary" onClick={onClose}>完成</button></footer>

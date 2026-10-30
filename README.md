@@ -1,135 +1,115 @@
 <div align="center">
-  <img src="public/stillnote-mark.png" width="88" alt="Stillnote 标志" />
-  <h1>Stillnote</h1>
-  <p><strong>留住一闪而过的想法。</strong></p>
-  <p>A quiet, local-first Markdown notebook.</p>
-  <p>
-    <a href="https://stillnote-crazyer.vercel.app">在线使用</a> ·
-    <a href="https://github.com/Crazyer-Flove/Stillnote/releases/latest">下载 Windows 版</a> ·
-    <a href="docs/user-guide.md">使用指南</a> ·
-    <a href="docs/development.md">开发与打包</a> ·
-    <a href="CHANGELOG.md">更新记录</a>
-  </p>
-  <p><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-6f7d59" /> <img alt="Windows x64" src="https://img.shields.io/badge/desktop-Windows%20x64-6f7d59" /> <img alt="React and TypeScript" src="https://img.shields.io/badge/React-TypeScript-6f7d59" /></p>
+<img src="public/stillnote-mark.png" width="88" alt="Stillnote" />
+<h1>Stillnote</h1>
+<p><strong>留住一闪而过的想法。</strong></p>
+<p>A quiet, local-first Markdown notebook.</p>
+<p><a href="https://stillnote-crazyer.vercel.app">在线使用</a> · <a href="https://github.com/Crazyer-Flove/Stillnote/releases/latest">下载 Windows 版</a> · <a href="docs/user-guide.md">使用指南</a> · <a href="docs/development.md">开发与打包</a></p>
+<img alt="MIT" src="https://img.shields.io/badge/license-MIT-6f7d59" />
 </div>
 
-Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。打开即可记录，通过工作区、标签和搜索整理内容，再导出为 Markdown、图片或 PDF。界面采用纸张色背景、克制的绿色和清晰的阅读层次，让日常记录保持轻松。
+Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。无需注册账号，在安静的纸张色界面记录想法，用工作区整理，再导出为 Markdown、图片或 PDF。界面语言为中文。
 
-无需注册账号。Windows 桌面版内置应用资源，不需要安装 Node.js 或启动服务器；源码也支持在浏览器中运行。当前界面语言为中文。
-
-![Stillnote 工作区，示例为空笔记库](docs/images/workspace.png)
+![Stillnote 1.2.0 工作区](docs/images/workspace-v120.png)
 
 ## 下载与开始
 
-前往 [Releases](https://github.com/Crazyer-Flove/Stillnote/releases/latest)，按使用方式选择：
+在 [Releases](https://github.com/Crazyer-Flove/Stillnote/releases/latest) 下载 Windows 10/11 x64 版本：
 
-| 文件 | 适合场景 |
+| 文件 | 使用方式 |
 | --- | --- |
-| `Stillnote-1.0.1-Windows-x64-Portable.exe` | 下载后双击运行，无需安装 |
-| `Stillnote-1.0.1-Windows-x64-Setup.exe` | 安装到指定目录，添加开始菜单入口 |
-| `SHA256SUMS.txt` | 核对下载文件的 SHA-256 |
+| `Stillnote-1.2.0-Windows-x64-Portable.exe` | 双击直接运行，首次解压运行时可能稍慢 |
+| `Stillnote-1.2.0-Windows-x64-Setup.exe` | 当前用户安装，支持选择安装位置与开始菜单入口 |
+| `SHA256SUMS.txt` | 核对下载文件 SHA-256 |
 
-支持 Windows 10/11 x64。首次打开便携版需要解压内置运行时，可能稍慢。安装包采用当前用户安装，无需管理员权限。
-
-**创建桌面快捷方式：** 打开「系统设置 → 外观」，在桌面应用区域点击「创建桌面快捷方式」。便携版快捷方式指向原始 EXE；移动或重命名 EXE 后，请重新创建。安装程序默认不创建桌面快捷方式。
-
-当前发布未购买代码签名证书，EXE 没有数字签名。请从本仓库 Releases 下载并核对校验值；如系统提示风险，应先核验文件来源。
+桌面快捷方式在「系统设置 → 外观 → 创建桌面快捷方式」主动创建。便携版移动位置后，请重新创建快捷方式。当前 EXE 未签名，请从本仓库下载并核验来源。
 
 ```powershell
-Get-FileHash .\Stillnote-1.0.1-Windows-x64-Portable.exe -Algorithm SHA256
+Get-FileHash .\Stillnote-1.2.0-Windows-x64-Portable.exe -Algorithm SHA256
 ```
 
-> 便携版表示免安装，并不表示数据保存在 EXE 旁边。桌面版数据位于 `%APPDATA%\Stillnote`。便携版与安装版共用此目录。备份是可靠迁移和恢复的必要步骤。
+## 1.2.0 的使用方式
 
-## 可以做什么
+- **工作区**：首次使用只有默认工作区；左侧工作区菜单进入管理，可以创建和删除。默认工作区不能删除；删除其他工作区时，其中笔记和回收站记录移入默认工作区，磁盘文件保留。
+- **目录**：在「系统设置 → 文件夹存储」选择一个根文件夹。Windows 使用原生选择器显示实际路径，并在重启后记住选择；网页使用浏览器授权，不提供任意磁盘绝对路径访问。
+- **分类**：使用工作区、收藏和置顶。标签功能已移除；旧笔记正文中的 `#文字` 保留为普通文本，旧备份中的元数据仍可兼容读取。
+- **侧边栏**：常驻按钮展开或收起；拖动右边缘调整宽度，键盘聚焦分隔条后用左右方向键调节。状态保存在当前应用中。
+- **窗口缩放**：桌面版支持 `Ctrl +` 放大、`Ctrl -` 缩小、`Ctrl 0` 重置。窄窗口自动切换移动导航；正文可换行，代码和表格在局部横向滚动。
+
+选择根目录后，预览并确认写入，目录结构为：
+
+```text
+你选择的文件夹/
+├── Notes/       # Markdown 正文，按笔记 ID 稳定命名
+├── Images/      # 笔记中的本机图片，按内容摘要去重
+└── Backups/     # 写入笔记前生成 JSON 快照
+```
+
+图片在磁盘 Markdown 中使用相对路径；JSON 快照保留内嵌图片，用于恢复。远程图片仍是网络链接，不会自动下载。写入需要主动确认，不是实时双向同步；不会自动删除目标目录中的旧文件，冲突和预览后被外部修改的文件会被保护。
+
+![统一根目录设置](docs/images/folders-v120.png)
+
+<details><summary>窄屏工作区布局</summary>
+<img src="docs/images/mobile-v120.png" width="320" alt="窄屏工作区设置" />
+</details>
+
+## 功能
 
 | 场景 | 功能 |
 | --- | --- |
-| 随手记录 | 快速输入、完整编辑器、日记/会议/读书三种模板、未完成草稿恢复 |
-| Markdown 写作 | 即时预览、源码/分栏/预览模式、任务列表、表格、公式、代码高亮、图片 |
-| 整理与查找 | 多工作区、层级标签、收藏、置顶、日期筛选、最近搜索与命名筛选 |
-| 批量处理 | 对当前结果批量添加标签、移动工作区、导出 Markdown 或移入回收站 |
-| 回看修改 | 按编辑会话保存历史起始快照，最多 50 个，查看差异和恢复版本 |
-| 分享内容 | Markdown；高级格式中的 TXT/HTML；三种卡片主题，复制/下载图片与 PDF |
-| 保存与迁移 | 本机保存状态、JSON 完整备份、导入预览、重复与冲突处理、可选文件夹写入 |
-| 日常维护 | 回收站、资源引用检查、帮助说明、明暗模式和两种阅读字体 |
+| 记录与写作 | 快速输入、完整编辑器、未完成草稿、日记/会议/读书模板 |
+| Markdown | 即时预览、源码/分栏/阅读模式、代码高亮、任务列表、表格、公式和图片 |
+| 整理与查找 | 自建工作区、收藏、置顶、正文搜索、日期筛选、最近搜索和常用筛选 |
+| 批量处理 | 当前结果移动工作区、导出 Markdown、移入回收站 |
+| 历史回看 | 每次编辑会话保留起始快照，最多 50 个，查看差异并恢复 |
+| 分享 | Markdown、TXT、HTML；三种卡片主题，复制或下载图片与 PDF |
+| 数据管理 | JSON 备份恢复、导入预览与冲突处理、可选文件夹写入、图片引用保护 |
+| 外观 | 明暗模式、两种阅读字体、侧边栏折叠与拖宽、响应式布局 |
 
-代码与表格样式随明暗模式自动适配，减少重复选项；卡片导出只保留极简白、暖纸、深色三种主题。正文写作和数据管理各有独立入口。
+PDF 使用图像排版，不是可编辑或可搜索的文本 PDF。远程图片的跨域限制、加载错误和超长笔记可能影响图像导出，请先检查预览。
 
-### 写作与阅读
+## 数据与迁移
 
-![Markdown 编辑器，示例含代码和表格](docs/images/editor.png)
+笔记首先保存在本机配置中：桌面版位于 `%APPDATA%\Stillnote`，网页版位于当前浏览器站点数据。便携版数据不在 EXE 旁边；安装版和便携版共用同一用户的数据目录。
 
-支持常见 Markdown 与 GFM 语法、KaTeX 公式、图片拖放/粘贴和代码复制。已有笔记自动保存；新建模板先保留为草稿，明确保存后进入笔记库。保存失败会显示提示，请及时导出备份。
+网页、桌面版、不同浏览器和不同域名之间不会自动同步。迁移时先在原环境导出 JSON，再在新版「备份与恢复」中预览并导入。升级前建议保留一份备份。
 
-### 导出与设置
+1.2.0 会移除旧版内置的“工作与项目、研习与灵感”，将其中笔记及历史移入默认工作区；用户自建工作区保留。迁移采用成组保存，失败时保留原始库。
 
-![暖纸卡片导出预览](docs/images/export.png)
+JSON 备份包含笔记、历史、笔记引用的本机图片、工作区及允许的偏好；不包含独立图片资源库、文件夹授权、API Key、最近搜索、常用筛选和导出参数。桌面路径记忆只保存在本机，不随备份授权其他电脑的文件系统。
 
-图片/PDF 面向阅读与分享，JSON 备份面向恢复。PDF 使用卡片图像排版，正文不是可编辑的文本 PDF；特别长的笔记和远程图片可能受内存、画布或跨域限制影响。
+清理站点数据或系统用户配置可能造成笔记丢失。本地数据没有额外的应用层加密，请定期导出并检查备份。详见 [使用指南](docs/user-guide.md)、[隐私说明](docs/privacy.md) 与 [安全策略](SECURITY.md)。
 
-<details>
-<summary>查看设置与移动端布局</summary>
+## 开发与部署
 
-![分组设置与阅读字体](docs/images/settings.png)
-
-<img src="docs/images/mobile-export.png" width="320" alt="浏览器移动端导出界面" />
-
-截图使用演示笔记，来自浏览器功能验收；桌面版共用同一界面，另增加桌面应用信息和快捷方式按钮。
-</details>
-
-## 数据、备份与旧版迁移
-
-- 笔记默认保存在当前浏览器配置或桌面应用配置中，不会自动同步到云端或其他设备。清除浏览器站点数据会丢失该配置中的本地记录。
-- 桌面版与网页、不同浏览器、不同端口/域名是独立的数据空间。由旧版迁移时，先在原页面导出 JSON 备份，再在新版「系统设置 → 备份恢复」导入，并检查预览。
-- 沿用旧版笔记存储键，兼容旧数组与 v2 JSON 备份；旧主题偏好会映射到精简后的样式。
-- JSON 备份包含笔记、历史、笔记引用的本机图片、工作区及允许的偏好。**不包含独立图片资源库、文件夹授权、API Key、最近搜索、命名筛选和导出参数。** 远程图片仍是链接，不会自动离线打包。
-- 文件夹存储需要用户主动选择并授权，每次重新打开应用可能需要重新授权。路径文本不等于已获得写入权限；写入前可预览，不会将任意同名文件直接覆盖。
-- 本地数据没有额外的应用层加密；请结合操作系统账户和磁盘保护管理敏感笔记。
-
-更多说明见 [使用与迁移指南](docs/user-guide.md)、[隐私说明](docs/privacy.md) 和 [安全策略](SECURITY.md)。
-
-## 本地开发
-
-需要 Node.js 22 LTS 与 npm。使用 npm 锁文件安装：
+需要 Node.js 22 LTS、npm。项目提供完整跨平台 npm 锁文件。
 
 ```bash
 git clone https://github.com/Crazyer-Flove/Stillnote.git
 cd Stillnote
 npm ci
 npm run dev
+npm run lint
+npm test
+npm run build
+npm start
+npm run desktop:dev
+npm run desktop:build
 ```
 
-打开 `http://localhost:3000`。服务默认仅监听 `127.0.0.1`；可参考 `.env.example` 设置端口。
+开发地址 `http://localhost:3000`，服务默认仅监听本机。桌面构建输出到 `release/`；桌面版使用本地前端、沙箱与上下文隔离，不启动 Express。原生文件操作仅限用户通过系统对话框选择的目录，拒绝越界路径与符号链接。
 
-```bash
-npm run lint          # TypeScript 检查
-npm test              # 数据安全与功能回归
-npm run build         # 前端及生产服务
-npm start             # 启动生产服务
-npm run desktop:dev   # 桌面开发预览
-npm run desktop:build # Windows x64 便携版 + 安装版
-```
+Vercel 由 `vercel.json` 配置为静态 Vite 站点，跳过 Electron 运行时下载；主分支推送自动更新正式环境。Windows Release 由标签触发 GitHub Actions，检查测试、构建和实际 EXE 启动诊断后发布安装包与校验文件。更多见 [开发文档](docs/development.md)。
 
-Windows 构建产物位于 `release/`。桌面壳使用 Electron 的进程隔离、沙箱和受限 IPC；前端本地加载，不启动 Express 服务。详细结构、构建条件和发布流程见 [开发文档](docs/development.md)。
+## 反馈、许可与支持
 
-## 贡献与问题反馈
+欢迎通过 [Issues](https://github.com/Crazyer-Flove/Stillnote/issues) 反馈，提交前阅读 [贡献指南](CONTRIBUTING.md)。请提供版本和演示内容，不要公开真实笔记、备份、密钥或本机敏感路径。
 
-欢迎通过 [Issues](https://github.com/Crazyer-Flove/Stillnote/issues) 提交复现步骤和建议。提交前请阅读 [贡献指南](CONTRIBUTING.md)。请勿上传个人笔记、API Key、真实备份或含隐私的屏幕截图；安全问题请依照 [SECURITY.md](SECURITY.md) 报告。
+采用 [MIT License](LICENSE)，作者 Crazyer-Flove。感谢 React、Vite、Electron、Tailwind CSS、Lucide、react-markdown、Prism、KaTeX、html-to-image、jsPDF 等开源项目。
 
-## 致谢与许可
-
-基于 React、TypeScript、Vite、Tailwind CSS、Electron、Lucide、react-markdown、Prism、KaTeX、html-to-image 和 jsPDF 等开源项目构建。第三方组件保留各自许可。
-
-项目采用 [MIT License](LICENSE)，作者 Crazyer-Flove。欢迎使用、研究与改进。
-
-<details>
-<summary>赏赞作者</summary>
-
-如果 Stillnote 对你有帮助，可以自愿支持后续维护。
+<details><summary>赏赞作者</summary>
 
 | 微信 | 支付宝 |
 | --- | --- |
-| <img src="public/wechat-qr.jpg" width="220" alt="微信赏赞二维码" /> | <img src="public/alipay-qr.jpg" width="220" alt="支付宝赏赞二维码" /> |
+| <img src="public/wechat-qr.jpg" width="220" alt="微信赏赞" /> | <img src="public/alipay-qr.jpg" width="220" alt="支付宝赏赞" /> |
 
 </details>

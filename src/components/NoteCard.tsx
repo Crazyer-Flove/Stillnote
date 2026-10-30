@@ -56,10 +56,9 @@ export const NoteCard: React.FC<NoteCardProps> = (props) => {
         <button className="sn-menu-item sn-danger" onClick={() => action(() => onDelete(note.id))}><Trash2 size={15} />移至回收站</button>
       </div></details></>}</div>
       {note.deletedAt && <p className="sn-caption">回收站 · 七天内可恢复</p>}
-      {searchQuery.trim() && <div className="sn-note-match"><p>{highlightParts(snippet || '匹配到标签或源码，可在编辑器中查看。', searchQuery).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</p><button onClick={() => { setExpanded(true); requestAnimationFrame(() => { const marks = card.current?.querySelectorAll<HTMLElement>('[data-search-match]'); if (!marks?.length) { onEdit(note); return; } const target = marks[cursor.current++ % marks.length]; target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.tabIndex = -1; target.focus({ preventScroll: true }); }); }}>定位 / 下一处匹配</button></div>}
+      {searchQuery.trim() && <div className="sn-note-match"><p>{highlightParts(snippet || '匹配到源码，可在编辑器中查看。', searchQuery).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</p><button onClick={() => { setExpanded(true); requestAnimationFrame(() => { const marks = card.current?.querySelectorAll<HTMLElement>('[data-search-match]'); if (!marks?.length) { onEdit(note); return; } const target = marks[cursor.current++ % marks.length]; target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.tabIndex = -1; target.focus({ preventScroll: true }); }); }}>定位 / 下一处匹配</button></div>}
       <div className={`sn-note-body ${folded ? 'is-folded' : ''}`}><MarkdownRenderer content={note.content} searchQuery={searchQuery} onTagClick={onTagClick} onBiLinkClick={onBiLinkClick} onTaskToggle={content => onUpdateContent(note.id, content)} codeBlockTheme={codeBlockTheme} tableTheme={tableTheme} /></div>
       {autoFoldLongNotes && note.content.length > 500 && <button className="sn-text-button" onClick={() => setExpanded(!expanded)}>{expanded ? '收起' : '展开全文'}<ChevronDown size={13} /></button>}
-      {note.tags.some(tag => !note.content.includes(`#${tag}`)) && <div className="sn-note-tags">{note.tags.filter(tag => !note.content.includes(`#${tag}`)).map(tag => <button key={tag} onClick={() => onTagClick(tag)}># {tag}</button>)}</div>}
     </div>
   </article>;
 };

@@ -121,7 +121,6 @@ export const TopComposer: React.FC<TopComposerProps> = ({
       <div className="sn-composer-toolbar">
         <div className="sn-composer-tools">
           <button aria-label="添加附件" onClick={() => setShowImageModal(true)}><Paperclip size={18} /><span>添加附件</span></button>
-          <div className="sn-relative"><button aria-label="添加标签" aria-expanded={showTagPicker} onClick={() => setShowTagPicker(!showTagPicker)}><Tag size={18} /><span>添加标签</span></button>{showTagPicker && <div className="sn-popover sn-composer-tag-menu"><p className="sn-caption">选择标签，或直接输入 #标签</p>{allExistingTags.map(tag => <button className="sn-menu-item" key={tag} onClick={() => insertTag(tag)}>#{tag}</button>)}<button className="sn-menu-item" onClick={() => { setContent(value => value + ' #'); setShowTagPicker(false); textareaRef.current?.focus(); }}>新标签</button></div>}</div>
           <button className="sn-composer-extra" title="图标与表情" aria-label="插入表情" onClick={() => setShowIconPicker(true)}><Smile size={17} /></button>
           <button className="sn-composer-extra" title="打开完整编辑器" aria-label="打开完整编辑器" onClick={() => onOpenFullEditor(content)}><Maximize2 size={17} /></button>
         </div>

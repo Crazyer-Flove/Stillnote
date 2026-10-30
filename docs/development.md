@@ -44,13 +44,13 @@ npm run desktop:build
 
 ## 验证
 
-本次验证通过类型检查、24 项自动化测试、生产构建和实际便携 EXE 启动诊断。测试覆盖旧数据、备份回滚、重复导入、文件冲突、图片历史引用、筛选校验、会话快照和桌面协议/IPC 边界。
+本次验证通过类型检查、27 项自动化测试、生产构建和实际便携 EXE 启动诊断。测试覆盖旧数据、备份回滚、重复导入、文件冲突、图片历史引用、筛选校验、会话快照和桌面协议/IPC 边界。
 
 发行版内置隔离诊断，不读取用户配置，不在真实桌面创建快捷方式：
 
 ```powershell
 $report = Join-Path $env:TEMP 'stillnote-smoke'
-$app = Start-Process '.\release\Stillnote-1.0.1-Windows-x64-Portable.exe' -ArgumentList "--self-test-dir=$report" -WindowStyle Hidden -PassThru
+$app = Start-Process '.\release\Stillnote-1.2.0-Windows-x64-Portable.exe' -ArgumentList "--self-test-dir=$report" -WindowStyle Hidden -PassThru
 $app.WaitForExit(60000)
 Get-Content (Join-Path $report 'result.json')
 ```
@@ -61,7 +61,13 @@ Get-Content (Join-Path $report 'result.json')
 
 `.github/workflows/release.yml` 在 `v*` 标签上运行 Windows 构建、检查与便携版诊断，然后通过当前仓库的 `GITHUB_TOKEN` 发布 EXE 和 `SHA256SUMS.txt`。令牌由 Actions 注入，不写入源码。
 
-首次发布前确认包版本、标签和发布说明一致，再推送提交及 `v1.0.1` 标签。不要提交 `node_modules/`、`.tools/`、`.desktop-app/`、本机配置、诊断 profile 或 EXE；安装包通过 Releases 分发。仓库重命名为 Stillnote 后，同步检查 Git remote、README 链接和包元数据。
+首次发布前确认包版本、标签和发布说明一致，再推送提交及 `v1.2.0` 标签。不要提交 `node_modules/`、`.tools/`、`.desktop-app/`、本机配置、诊断 profile 或 EXE；安装包通过 Releases 分发。仓库重命名为 Stillnote 后，同步检查 Git remote、README 链接和包元数据。
 
 当前构建未签名。若后续启用代码签名，应使用 GitHub Secrets 存储证书与密码，并单独说明签名主体，不得将证书提交到仓库。
 
+
+## 1.2.0 原生目录与布局
+
+桌面目录由 desktop/folders.cjs 注册受限 IPC：只有用户通过原生对话框选定的根目录可访问，按工作区存储在本机 folders.json；路径逐级校验并拒绝符号链接。前端 desktopDirectory.ts 适配已有的预览、冲突保护和导入接口。Notes/Images/Backups 固定在同一根目录内；JSON 快照保持可移植图片。
+
+新增测试覆盖内置工作区无损合并、选择记忆与越界拒绝、图片独立落盘及回读。用户真实目录未用于测试。网页版仍遵循浏览器文件授权限制。

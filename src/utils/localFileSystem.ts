@@ -1,3 +1,4 @@
+import { desktopDirectory } from './desktopDirectory';
 import { portableNotes } from './imageStorage';
 import { Note } from '../types';
 import { extractTags } from './markdownUtils';
@@ -21,7 +22,7 @@ export interface SyncStats {
  * Checks if the browser supports the File System Access API
  */
 export function isFileSystemAccessSupported(): boolean {
-  return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+  return typeof window !== 'undefined' && (!!window.stillnoteDesktop || 'showDirectoryPicker' in window);
 }
 
 /**
@@ -35,7 +36,7 @@ export function deriveSubPaths(rootPath: string): LocalDirectoryPaths {
   return {
     rootPath: cleanRoot,
     notesPath: `${cleanRoot}${sep}Notes`,
-    mediaPath: `${cleanRoot}${sep}.src`,
+    mediaPath: `${cleanRoot}${sep}Images`,
     backupPath: `${cleanRoot}${sep}Backups`,
   };
 }
@@ -43,11 +44,12 @@ export function deriveSubPaths(rootPath: string): LocalDirectoryPaths {
 /**
  * Prompts user to pick a local computer folder using File System Access API
  */
-export async function pickLocalDirectory(): Promise<{
+export async function pickLocalDirectory(workspaceId = 'default'): Promise<{
   handle: any;
   name: string;
   derivedPaths: LocalDirectoryPaths;
 } | null> {
+  if (window.stillnoteDesktop) {const folder=await window.stillnoteDesktop.pickFolder(workspaceId);return folder?{handle:desktopDirectory(folder),name:folder.name,derivedPaths:deriveSubPaths(folder.path)}:null;}
   if (!isFileSystemAccessSupported()) {
     return null;
   }
@@ -60,7 +62,7 @@ export async function pickLocalDirectory(): Promise<{
 
     const folderName = handle.name || 'Stillnote-Vault';
     // Construct friendly default path display
-    const simulatedPath = `~/Documents/${folderName}`;
+    const simulatedPath = folderName;
     const derivedPaths = deriveSubPaths(simulatedPath);
 
     return {
@@ -112,7 +114,7 @@ id: ${JSON.stringify(note.id)}
 created: "${createdIso}"
 updated: "${updatedIso}"
 pinned: ${note.isPinned}
-favorite: ${note.isFavorite}${tagsYaml}
+favorite: ${note.isFavorite}
 ---
 
 `;
@@ -122,14 +124,16 @@ favorite: ${note.isFavorite}${tagsYaml}
 
 export interface DirectoryWriteOptions { notesDirName?: string; mediaDirName?: string; backupDirName?: string }
 export interface DirectoryWriteEntry {
-  name: string; directory: 'notes' | 'backup' | 'root'; title: string;
+  name: string; directory: 'notes' | 'backup' | 'root' | 'images'; title: string;
   status: 'new' | 'update' | 'unchanged' | 'conflict'; previous: string | null; content: string;
 }
 export interface DirectoryWritePlan {
-  rootName: string; notesDirName: string; backupDirName: string;
+  rootName: string; notesDirName: string; backupDirName: string; mediaDirName: string;
   entries: DirectoryWriteEntry[]; backupFileName: string; sourceNotes: Note[];
 }
 const notFound = (error: any) => error?.name === 'NotFoundError' || error?.message === 'NotFound';
+async function imageText(directory:any,name:string,mime:string){if(!directory)return null;try{const bytes=new Uint8Array(await (await (await directory.getFileHandle(name)).getFile()).arrayBuffer());return `data:${mime};base64,${btoa(Array.from(bytes,b=>String.fromCharCode(b)).join(''))}`;}catch(error){if(notFound(error))return null;throw error;}}
+async function entryText(directory:any,entry:DirectoryWriteEntry){return entry.directory==='images'?imageText(directory,entry.name,entry.content.slice(5,entry.content.indexOf(';'))):readText(directory,entry.name);}
 async function optionalDirectory(root: any, name: string) {
   try { return await root.getDirectoryHandle(name); } catch (error) { if (notFound(error)) return null; throw error; }
 }
@@ -154,9 +158,11 @@ export function frontmatterId(text: string): string | null {
 export async function previewWorkspaceWrite(root: any, notes: Note[], options: DirectoryWriteOptions = {}): Promise<DirectoryWritePlan> {
   const notesDirName = directoryName(options.notesDirName || 'Notes');
   const backupDirName = directoryName(options.backupDirName || 'Backups');
-  if (notesDirName === backupDirName) throw new Error('笔记与备份目录不能相同。');
+  const mediaDirName = directoryName(options.mediaDirName || 'Images');
+  if (new Set([notesDirName,backupDirName,mediaDirName].map(s=>s.toLowerCase())).size!==3) throw new Error('笔记、图片与备份目录不能相同。');
   const notesDirectory = await optionalDirectory(root, notesDirName);
   const backupDirectory = await optionalDirectory(root, backupDirName);
+  const imagesDirectory = await optionalDirectory(root, mediaDirName);
   const portable = portableNotes(notes);
   const entries: DirectoryWriteEntry[] = [];
   const used = new Set<string>();
@@ -166,7 +172,15 @@ export async function previewWorkspaceWrite(root: any, notes: Note[], options: D
     const name = `note-${hash}.md`;
     if (used.has(name)) throw new Error('笔记 ID 重复，请先处理重复记录。');
     used.add(name);
-    const content = formatNoteToMarkdownWithFrontmatter(note);
+    let diskContent=note.content;
+    for(const match of note.content.matchAll(/!\[[^\]]*\]\((data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+))\)/g)){
+      const bytes=Uint8Array.from(atob(match[3]),c=>c.charCodeAt(0));
+      const digest=await crypto.subtle.digest('SHA-256',bytes);
+      const imageName=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')+'.'+(match[2]==='jpeg'?'jpg':match[2]);
+      if(!entries.some(e=>e.directory==='images'&&e.name===imageName)){const previous=await imageText(imagesDirectory,imageName,'image/'+match[2]);entries.push({name:imageName,directory:'images',title:'笔记图片',content:match[1],previous,status:previous===null?'new':previous===match[1]?'unchanged':'conflict'});}
+      diskContent=diskContent.replaceAll(match[1],`../${mediaDirName}/${imageName}`);
+    }
+    const content = formatNoteToMarkdownWithFrontmatter({...note,content:diskContent});
     const previous = await readText(notesDirectory, name);
     const status = previous === null ? 'new' : frontmatterId(previous) !== note.id ? 'conflict' : previous === content ? 'unchanged' : 'update';
     entries.push({ name, directory: 'notes', title: note.content.split('\n')[0].slice(0, 100) || '空白笔记', status, previous, content });
@@ -177,30 +191,33 @@ export async function previewWorkspaceWrite(root: any, notes: Note[], options: D
   const docName = 'FloveNote-说明.md';
   const previous = await readText(root, docName);
   entries.push({ name: docName, directory: 'root', title: '目录说明（已有文件保持不变）', status: previous === null ? 'new' : 'unchanged', previous,
-    content: previous ?? `# FloveNote 工作区\n\n${notesDirName}/：笔记，图片内嵌在正文中。\n${backupDirName}/：JSON 快照。\n\n文件名按笔记 ID 固定，修改标题不会另建文件。旧文件和其他文件不会被自动删除。\n` });
-  return { rootName: root.name || '所选文件夹', notesDirName, backupDirName, entries, backupFileName, sourceNotes: notes.map(note => ({ ...note })) };
+    content: previous ?? `# FloveNote 工作区\n\n${notesDirName}/：Markdown 笔记。\n${mediaDirName}/：本机图片。\n${backupDirName}/：JSON 快照。\n\n文件名按笔记 ID 固定，修改标题不会另建文件。旧文件和其他文件不会被自动删除。\n` });
+  return { rootName: root.name || '所选文件夹', notesDirName, backupDirName, mediaDirName, entries, backupFileName, sourceNotes: notes.map(note => ({ ...note })) };
 }
 /** Recheck every previewed file before performing the confirmed writes. */
 export async function syncWorkspaceToDirectoryHandle(root: any, notes: Note[], options?: DirectoryWriteOptions, confirmedPlan?: DirectoryWritePlan): Promise<SyncStats> {
   let written = 0;
   try {
     const plan = confirmedPlan || await previewWorkspaceWrite(root, notes, options);
-    const directories = { notes: await optionalDirectory(root, plan.notesDirName), backup: await optionalDirectory(root, plan.backupDirName), root };
+    const directories = { notes: await optionalDirectory(root, plan.notesDirName), backup: await optionalDirectory(root, plan.backupDirName), images: await optionalDirectory(root,plan.mediaDirName), root };
     for (const entry of plan.entries) {
-      if (await readText(directories[entry.directory], entry.name) !== entry.previous) throw new Error(`文件已在预览后发生变化：${entry.name}。请重新预览。`);
+      if (await entryText(directories[entry.directory], entry) !== entry.previous) throw new Error(`文件已在预览后发生变化：${entry.name}。请重新预览。`);
     }
     if (plan.entries.find(entry => entry.directory === 'backup')?.status === 'conflict') throw new Error('备份文件名发生冲突，请重新预览。');
+    if(plan.entries.some(entry=>entry.directory==='images'&&entry.status==='conflict'))throw new Error('图片文件发生冲突，请先检查目标目录。');
     directories.notes ||= await root.getDirectoryHandle(plan.notesDirName, { create: true });
     directories.backup ||= await root.getDirectoryHandle(plan.backupDirName, { create: true });
+    directories.images ||= await root.getDirectoryHandle(plan.mediaDirName, { create: true });
     // Write a snapshot before updating note files.
     for (const entry of [...plan.entries].sort((a, b) => Number(b.directory === 'backup') - Number(a.directory === 'backup'))) {
       if (entry.status === 'conflict' || entry.status === 'unchanged') continue;
-      if (await readText(directories[entry.directory], entry.name) !== entry.previous) throw new Error(`文件在写入前发生变化：${entry.name}`);
-      await writeFileToHandle(directories[entry.directory], entry.name, entry.content);
+      if (await entryText(directories[entry.directory], entry) !== entry.previous) throw new Error(`文件在写入前发生变化：${entry.name}`);
+      const payload=entry.directory==='images'?new Blob([Uint8Array.from(atob(entry.content.split(',')[1]),c=>c.charCodeAt(0))]):entry.content;
+      await writeFileToHandle(directories[entry.directory], entry.name, payload);
       if (entry.directory === 'notes') written++;
     }
     const conflicts = plan.entries.filter(entry => entry.status === 'conflict').length;
-    return { success: conflicts === 0, notesCount: written, imagesCount: 0, backupFileName: plan.backupFileName,
+    return { success: conflicts === 0, notesCount: written, imagesCount: plan.entries.filter(e=>e.directory==='images'&&e.status!=='conflict').length, backupFileName: plan.backupFileName,
       error: conflicts ? `已写入 ${written} 篇笔记，跳过 ${conflicts} 个冲突文件。完整内容保存在 JSON 快照中。` : undefined };
   } catch (error: any) {
     return { success: false, notesCount: written, imagesCount: 0, backupFileName: '', error: `写入未完成（已写入 ${written} 篇）：${error?.message || '请重试'}` };
@@ -252,6 +269,9 @@ export async function readNotesFromDirectoryHandle(rootHandle: any, workspaceId:
             }
           }
 
+          for(const match of content.matchAll(/!\[[^\]]*\]\(\.\.\/Images\/([a-f0-9]{64}\.(png|jpg|webp|gif))\)/g)){
+            const images=await optionalDirectory(rootHandle,'Images');const data=await imageText(images,match[1],'image/'+(match[2]==='jpg'?'jpeg':match[2]));if(data)content=content.replaceAll(`../Images/${match[1]}`,data);
+          }
           const tags = extractTags(content);
 
           importedNotes.push({

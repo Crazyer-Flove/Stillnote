@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,readFile} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {simplifyWorkspaces} from '../src/utils/workspaceMigration';
+import type {Note,AppSettings} from '../src/types';
+const {registerFolders,resolveChild}=createRequire(import.meta.url)('../desktop/folders.cjs');
+test('built-in workspace migration preserves custom spaces, note contents and trash',()=>{
+ const notes=[{id:'a',content:'#原始正文',workspaceId:'work',deletedAt:123,history:[{id:'h',content:'older',timestamp:1}]},{id:'b',content:'custom',workspaceId:'custom'}] as Note[];
+ const settings={activeWorkspaceId:'work',workspaces:[{id:'default',name:'默认工作区'},{id:'work',name:'工作与项目'},{id:'study',name:'研习与灵感'},{id:'custom',name:'我的项目'}]} as AppSettings;
+ const next=simplifyWorkspaces(notes,settings);
+ assert.deepEqual(next.settings.workspaces!.map(w=>w.id),['default','custom']);
+ assert.equal(next.settings.activeWorkspaceId,'default');assert.equal(next.notes[0].workspaceId,'default');
+ assert.equal(next.notes[0].content,notes[0].content);assert.equal(next.notes[0].deletedAt,123);assert.deepEqual(next.notes[0].history,notes[0].history);
+ assert.equal(next.notes[1].workspaceId,'custom');assert.equal(notes[0].workspaceId,'work');
+ assert.deepEqual(simplifyWorkspaces(next.notes,next.settings),next);
+});
+test('native folder access persists selection and confines all operations to chosen root',async()=>{
+ const temp=await mkdtemp(path.join(os.tmpdir(),'stillnote-folder-'));const root=path.join(temp,'vault');await mkdir(root);
+ const handlers=new Map<string,Function>();const setup=()=>registerFolders({app:{getPath:()=>temp},ipcMain:{handle:(key:string,fn:Function)=>handlers.set(key,fn)},dialog:{showOpenDialog:async()=>({canceled:false,filePaths:[root]})},window:()=>undefined,checkSender:()=>{}});
+ setup();const call=(name:string,...args:unknown[])=>handlers.get('stillnote:'+name)!({},...args);
+ await assert.rejects(()=>call('folder-op','other',[],'list'));
+ assert.equal((await call('folder-pick','default')).path,root);
+ await call('folder-op','default',['Notes'],'mkdir');await call('folder-op','default',['Notes','a.md'],'write','original');
+ assert.equal(await readFile(path.join(root,'Notes','a.md'),'utf8'),'original');
+ for(const parts of [['..','outside'],['Notes/../../outside'],['C:secret']])await assert.rejects(()=>call('folder-op','default',parts,'read'));
+ setup();assert.equal((await call('folder-info','default')).path,root);
+ assert.equal(await resolveChild(root,['Notes','a.md']),path.join(root,'Notes','a.md'));
+});

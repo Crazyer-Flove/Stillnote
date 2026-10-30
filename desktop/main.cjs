@@ -1,4 +1,4 @@
-const {app,BrowserWindow,protocol,net,ipcMain,shell,Menu}=require('electron');
+const {app,BrowserWindow,protocol,net,ipcMain,shell,Menu,dialog}=require('electron');
 const path=require('node:path');
 const fs=require('node:fs/promises');
 const {pathToFileURL}=require('node:url');
@@ -20,6 +20,7 @@ function shortcut(destination){
 function checkSender(event){if(!event.senderFrame||event.senderFrame!==event.sender.mainFrame||!trusted(event.senderFrame.url))throw new Error('此页面无权调用桌面接口');}
 let window;
 async function createWindow(){
+ require('./folders.cjs').registerFolders({app,ipcMain,dialog,window:()=>window,checkSender});
  const root=path.join(app.isPackaged?app.getAppPath():path.resolve(__dirname,'..'),'dist');
  protocol.handle('app',async request=>{
   const target=assetPath(request.url,root);if(!target)return new Response('Forbidden',{status:403});
@@ -31,7 +32,8 @@ async function createWindow(){
  });
  ipcMain.handle('stillnote:info',event=>{checkSender(event);return {version:app.getVersion(),platform:process.platform,portable:!!process.env.PORTABLE_EXECUTABLE_FILE,dataPath:app.getPath('userData')};});
  ipcMain.handle('stillnote:shortcut',event=>{checkSender(event);try{return {ok:true,path:shortcut(path.join(app.getPath('desktop'),'Stillnote.lnk'))};}catch(error){return {ok:false,error:error.message};}});
- window=new BrowserWindow({width:1280,height:900,minWidth:760,minHeight:600,show:!smokeDir,title:'Stillnote',backgroundColor:'#faf9f6',icon:path.join(__dirname,'icon.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+ window=new BrowserWindow({width:1280,height:900,minWidth:420,minHeight:480,show:!smokeDir,title:'Stillnote',backgroundColor:'#faf9f6',icon:path.join(__dirname,'icon.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+ window.webContents.on('before-input-event',(event,input)=>{if(input.type!=='keyDown'||!(input.control||input.meta))return;if(['+','=','-','0'].includes(input.key)){event.preventDefault();const current=window.webContents.getZoomFactor();window.webContents.setZoomFactor(input.key==='0'?1:Math.max(.6,Math.min(2,current+(input.key==='-'?-.1:.1))));}});
  Menu.setApplicationMenu(null);
  window.webContents.setWindowOpenHandler(({url})=>{try{const u=new URL(url);if(['https:','http:'].includes(u.protocol))shell.openExternal(u.toString());}catch{}return {action:'deny'};});
  window.webContents.on('will-navigate',(event,url)=>{if(!trusted(url))event.preventDefault();});

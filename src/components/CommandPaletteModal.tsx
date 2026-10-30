@@ -148,7 +148,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         group: 'actions',
         groupName: '快捷操作',
         title: query ? `在列表中搜索 "${query}"` : '全局关键字检索',
-        subtitle: '按关键字筛选匹配所有随记与标签',
+        subtitle: '按关键字筛选匹配所有随记',
         icon: <Search className="w-4 h-4 text-indigo-500" />,
         action: () => {
           if (query.trim()) {
@@ -178,17 +178,6 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         icon: <BarChart2 className="w-4 h-4 text-violet-500" />,
         action: () => {
           onOpenAnalytics();
-        },
-      },
-      {
-        id: 'cmd-view-tag-cloud',
-        group: 'views',
-        groupName: '视图切换',
-        title: '打开：标签云全景图',
-        subtitle: '通过字号和色彩展示标签热度与关联笔记',
-        icon: <Cloud className="w-4 h-4 text-indigo-500" />,
-        action: () => {
-          if (onOpenTagCloud) onOpenTagCloud();
         },
       },
       {
@@ -302,7 +291,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         .filter((n) => {
           const contentMatch = n.content.toLowerCase().includes(q);
           const tagMatch = n.tags.some((t) => t.toLowerCase().includes(q));
-          return contentMatch || tagMatch;
+          return contentMatch;
         })
         .slice(0, 6);
 
@@ -321,7 +310,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             onSelectNote(n);
             onShowToast(`已打开随记: ${firstLine.substring(0, 15)}`, 'success');
           },
-          badge: n.tags[0] ? `#${n.tags[0]}` : undefined,
+          badge: undefined,
         });
       });
     }

@@ -290,24 +290,6 @@ export const FocusModeModal: React.FC<FocusModeModalProps> = ({
             />
           </div>
 
-          {/* Footer Tags */}
-          {note.tags.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap pt-8 mt-12 border-t border-slate-200/80 dark:border-zinc-800/80">
-              <span className="text-xs font-semibold text-slate-400 dark:text-zinc-500">关联标签:</span>
-              {note.tags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => {
-                    onClose();
-                    onTagClick(tag);
-                  }}
-                  className="px-3 py-1 rounded-xl text-xs font-medium bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
-                >
-                  #{tag}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </main>
 
