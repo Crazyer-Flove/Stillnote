@@ -55,7 +55,7 @@ $app.WaitForExit(60000)
 Get-Content (Join-Path $report 'result.json')
 ```
 
-诊断检查页面加载、预加载桥、安全上下文和临时快捷方式目标。它不能替代所有交互验收。历史浏览器验收记录在 `docs/optimization-2026-10-30/`；未进行数万条笔记压力测试、完整屏幕阅读器审计或所有 Windows 版本兼容性验证。
+诊断检查页面加载、预加载桥、安全上下文和临时快捷方式目标。它不能替代所有交互验收。浏览器演示截图见 `docs/images/`；未进行数万条笔记压力测试、完整屏幕阅读器审计或所有 Windows 版本兼容性验证。
 
 ## GitHub Release
 
