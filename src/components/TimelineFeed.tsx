@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Note, FilterState, ViewMode, CodeBlockThemeId, TableThemeId } from '../types';
 import { TopComposer } from './TopComposer';
 import { NoteCard } from './NoteCard';
+import { PageMagnifier } from './PageMagnifier';
 import { groupNotesByDate, getIsoWeekString, getMonthString, formatWeekLabel, formatMonthLabel } from '../utils/markdownUtils';
 import { Search, X, Menu, CheckCircle2, SlidersHorizontal, ArrowDownWideNarrow, ChevronDown, Download, Command, Plus } from 'lucide-react';
 
@@ -102,6 +103,7 @@ export const TimelineFeed: React.FC<TimelineFeedProps> = ({
       <button className="sn-icon-button sn-mobile-menu" aria-label="打开导航菜单" onClick={onOpenMobileMenu}><Menu size={20} /></button>
       <div className="sn-search"><Search size={19} /><input aria-label="搜索笔记正文" placeholder="搜索笔记内容…" value={filterState.searchKeyword} onBlur={()=>{try{rememberSearch(workspaceId,filterState.searchKeyword);}catch{onShowToast("最近搜索保存失败", "error");}}} onKeyDown={e=>{if(e.key==='Enter'){try{rememberSearch(workspaceId,filterState.searchKeyword);}catch{onShowToast("最近搜索保存失败", "error");}}}} onChange={event => onFilterChange({ searchKeyword: event.target.value })} />{filterState.searchKeyword ? <button className="sn-icon-button" aria-label="清除搜索" onClick={() => onFilterChange({ searchKeyword: '' })}><X size={15} /></button> : <button className="sn-search-shortcut" aria-label="打开命令面板" onClick={onOpenCommandPalette}>⌘ K</button>}</div>
       <details className="sn-save-menu"><summary className={saveFailed ? 'sn-error' : ''}><CheckCircle2 size={16} /><span>{saveFailed ? '保存失败' : '已保存'}</span><ChevronDown size={12} /></summary><div className="sn-popover"><p className="sn-caption" role="status">{saveFailed ? '内容暂留在页面，请重试或导出。' : '笔记已保存在此浏览器。'}<br />{folderAuthorized ? folderSynced ? '文件夹内容已更新' : '文件夹有待写入内容' : '文件夹未授权（仅保存在浏览器）'}<br/>最后成功写入：{lastWriteAt?new Date(lastWriteAt).toLocaleString():'暂无记录'}</p>{saveFailed && <button className="sn-menu-item" onClick={onRetrySave}>重试保存</button>}<button className="sn-menu-item" onClick={onOpenStorage}>管理文件夹存储</button><button className="sn-menu-item" onClick={onExportBackup}><Download size={15} />导出全量备份</button></div></details>
+      <PageMagnifier />
       <time className="sn-current-date">{date}</time>
     </header>
     {saveFailed && <div className="sn-error-banner" role="alert">保存未完成，请保留页面。<button onClick={onRetrySave}>重试</button><button onClick={onExportBackup}>导出备份</button></div>}

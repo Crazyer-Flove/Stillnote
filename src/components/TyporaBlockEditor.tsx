@@ -179,7 +179,7 @@ export const TyporaBlockEditor: React.FC<TyporaBlockEditorProps> = ({
           }
         }}
         onDrop={handleDropFiles}
-        className="flex-1 min-h-[360px] p-4 sm:p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-2xs transition-all flex flex-col"
+        className="sn-typora-page flex-1 min-h-[360px] p-4 sm:p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-2xs transition-all flex flex-col"
       >
         {useSourceView ? (
           /* Full Source View */
@@ -203,7 +203,7 @@ export const TyporaBlockEditor: React.FC<TyporaBlockEditorProps> = ({
           />
         ) : (
           /* Typora Interactive Block Editor */
-          <div className="flex-1 min-h-[300px] space-y-3 cursor-text" onClick={() => {
+          <div className="sn-typora-blocks flex-1 min-h-[300px] space-y-3 cursor-text" onClick={() => {
             if (activeBlockIndex === null) setActiveBlockIndex(blocks.length - 1);
           }}>
             {blocks.map((blockText, idx) => {
@@ -469,15 +469,14 @@ const BlockTextarea: React.FC<BlockTextareaProps> = ({
     const lineCount = Math.max(1, codeBody.split('\n').length);
 
     return (
-      <div className="my-2 rounded-2xl border border-slate-200/90 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 shadow-sm overflow-hidden font-mono text-sm animate-fadeIn">
+      <div className="sn-code-editor my-2 rounded-2xl border border-slate-200/90 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 shadow-sm overflow-hidden font-mono text-sm animate-fadeIn">
         {/* Typora Code Block Header Bar - Pure macOS Light Theme */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100/90 dark:bg-zinc-800/90 border-b border-slate-200/90 dark:border-zinc-700 select-none text-xs">
           {/* macOS window controls */}
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block border border-red-500/80 ring-1 ring-slate-400/20" />
-            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block border border-amber-500/80 ring-1 ring-slate-400/20" />
-            <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block border border-emerald-500/80 ring-1 ring-slate-400/20" />
-            <span className="text-[11px] text-slate-600 dark:text-zinc-300 font-semibold ml-2">macOS 纯白代码编辑器</span>
+
+
+            <span className="text-[11px] text-slate-600 dark:text-zinc-300 font-semibold ml-2">代码块</span>
           </div>
 
           {/* Language Selector & Finish Button */}

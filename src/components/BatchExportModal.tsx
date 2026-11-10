@@ -57,9 +57,9 @@ export const BatchExportModal: React.FC<BatchExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="导出内容" tabIndex={-1} className="bg-white dark:bg-zinc-900 rounded-2xl max-w-xl w-full border border-stone-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="导出内容" tabIndex={-1} className="sn-dialog-shell sn-batch-export-dialog bg-white dark:bg-zinc-900 rounded-2xl max-w-xl w-full border border-stone-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-zinc-800">
+        <div className="sn-dialog-header flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-zinc-800">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-500">
               <Download className="w-5 h-5" />

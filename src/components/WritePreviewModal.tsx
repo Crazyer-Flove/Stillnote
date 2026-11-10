@@ -8,7 +8,7 @@ export function WritePreviewModal({ plan, onClose, onConfirm }: { plan: Director
   const ref = useDialog(true, () => { if (!busy) onClose(); });
   const labels = { new: '新增', update: '更新', unchanged: '不变', conflict: '冲突，跳过' };
   return <div className="fixed inset-0 z-[70] bg-black/60 p-4 flex items-center justify-center">
-    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="write-title" tabIndex={-1} className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 p-5 space-y-4">
+    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="write-title" tabIndex={-1} className="sn-dialog-shell sn-scroll-dialog w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 p-5 space-y-4">
       <h2 id="write-title" className="font-semibold text-lg">文件夹写入预览</h2>
       <p className="text-sm">目标文件夹：{plan.rootName}</p>
       <p className="text-sm text-slate-600 dark:text-zinc-300">确认后先生成 JSON 快照，再写入笔记。未列出的旧文件保持不变；同名但不属于对应笔记的文件会跳过。本机图片写入 Images/，JSON 快照仍保留内嵌图片。</p>

@@ -1,5 +1,6 @@
 import { compareLines } from '../utils/product';
 import { initialEditorDraft } from '../utils/editorDraft';
+import { PageMagnifier } from './PageMagnifier';
 import React, { useState, useEffect, useRef } from 'react';
 import { useDialog } from '../hooks/useDialog';
 import { Note, NoteHistory } from '../types';
@@ -217,7 +218,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
         }`}
       >
         {/* Top Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/80 shrink-0 flex-wrap gap-2">
+        <div className="sn-dialog-header flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/80 shrink-0 flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <span className="font-bold text-slate-900 dark:text-zinc-100 text-base">
               {note ? '编辑笔记' : '新建笔记'}
@@ -253,10 +254,11 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
 
           {/* Window Controls */}
           <div className="flex items-center gap-2">
+            <PageMagnifier />
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800"
-              title={isFullscreen ? '退出全屏' : '全屏编辑'}
+              aria-label={isFullscreen ? '退出全屏' : '全屏编辑'} title={isFullscreen ? '退出全屏' : '全屏编辑'}
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
@@ -271,7 +273,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
         </div>
 
         {/* Formatting Toolbar */}
-        <div className="flex items-center flex-wrap gap-1 px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200/60 dark:border-zinc-800 shrink-0 text-slate-600 dark:text-zinc-400 no-scrollbar">
+        <div className="sn-editor-toolbar flex items-center flex-wrap gap-1 px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200/60 dark:border-zinc-800 shrink-0 text-slate-600 dark:text-zinc-400 no-scrollbar">
           <button
             onClick={() => insertFormatting('**', '**', '粗体')}
             className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100"
@@ -421,13 +423,13 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
               title="将当前笔记导出为精美长图"
             >
               <Palette className="w-4 h-4" />
-              <span>导出精美图片</span>
+              <span>导出卡片</span>
             </button>
           )}
         </div>
 
         {/* Editor Typora WYSIWYG Canvas */}
-        <div className="flex-1 min-h-0 relative flex bg-slate-50/30 dark:bg-zinc-950/20 overflow-y-auto">
+        <div className="sn-editor-canvas flex-1 min-h-0 relative flex bg-slate-50/30 dark:bg-zinc-950/20 overflow-y-auto">
           <TyporaBlockEditor
             content={content}
             onChange={setContent}
@@ -440,7 +442,7 @@ export const NoteEditorModal: React.FC<NoteEditorModalProps> = ({
         </div>
 
         {/* Footer Bar */}
-        <div className="sn-editor-footer px-6 py-3 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
+        <div className="sn-dialog-footer sn-editor-footer px-6 py-3 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400">
             <span>{charCount} 字</span>
             <span className="hidden sm:inline opacity-75">({rawCharCount} 字符)</span>

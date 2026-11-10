@@ -327,13 +327,13 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
 
   return (
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="导出分享卡片" tabIndex={-1} className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="sn-export-dialog sn-dialog-shell bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-zinc-900">
+        <div className="sn-dialog-header px-5 py-3.5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-zinc-900">
           <div className="flex items-center gap-2">
             <Palette className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             <h3 className="font-semibold text-slate-900 dark:text-zinc-100 text-sm">
-              导出精美卡片图片 & 高清 PDF
+              导出卡片
             </h3>
           </div>
           <button
@@ -347,7 +347,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
         {/* Content Layout */}
         <div className="sn-export-layout flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
           {/* Controls Sidebar (Left) */}
-          <div className="md:col-span-4 p-5 border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/50 overflow-y-auto space-y-5 text-xs custom-scrollbar">
+          <div className="sn-export-controls md:col-span-4 p-5 border-r border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/50 overflow-y-auto space-y-5 text-xs custom-scrollbar">
             {/* Theme Selector */}
             <div>
               <label className="block font-medium text-slate-700 dark:text-zinc-300 mb-2">
@@ -496,7 +496,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
           </div>
 
           {/* Card Preview Area (Right) */}
-          <div className="md:col-span-8 p-6 bg-slate-200/60 dark:bg-zinc-950 overflow-y-auto flex items-start justify-center custom-scrollbar">
+          <div className="sn-export-preview md:col-span-8 p-6 bg-slate-200/60 dark:bg-zinc-950 overflow-y-auto flex items-start justify-center custom-scrollbar">
             {/* The actual element captured by html-to-image */}
             <div
               ref={cardRef}
@@ -567,7 +567,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="sn-export-actions px-6 py-3.5 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end shrink-0">
+        <div className="sn-dialog-footer sn-export-actions px-6 py-3.5 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={onClose} aria-label="关闭窗口"
@@ -598,7 +598,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
               ) : (
                 <>
                   <FileCheck2 className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>导出为 PDF</span>
+                  <span>导出 PDF</span>
                 </>
               )}
             </button>
@@ -615,7 +615,7 @@ export const NoteExportCardModal: React.FC<NoteExportCardModalProps> = ({
               ) : (
                 <>
                   <Download className="w-3.5 h-3.5" />
-                  <span>下载精美图片</span>
+                  <span>下载图片</span>
                 </>
               )}
             </button>

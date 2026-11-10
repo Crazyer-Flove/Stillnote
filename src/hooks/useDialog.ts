@@ -31,7 +31,7 @@ export function useDialog(open: boolean, onClose: () => void): RefObject<HTMLDiv
     )).filter((element) => element.getClientRects().length > 0);
     if (topDialog() === root) (focusable()[0] || root).focus();
     const keydown = (event: KeyboardEvent) => {
-      if (topDialog() !== root) return;
+      if (topDialog() !== root || document.querySelector('dialog:modal')) return;
       if (event.key === 'Escape') {
         event.preventDefault(); event.stopPropagation(); closeRef.current();
       }

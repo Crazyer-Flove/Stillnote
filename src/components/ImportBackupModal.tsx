@@ -12,7 +12,7 @@ export function ImportBackupModal({ backup, notes, settings, onClose, onConfirm 
   const plan = useMemo(() => planImport(notes, settings, backup, options), [notes, settings, backup, options]);
   const ref = useDialog(true, onClose);
   return <div className="fixed inset-0 z-[70] bg-black/60 p-4 flex items-center justify-center">
-    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="import-title" tabIndex={-1} className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-zinc-900 rounded-2xl p-5 space-y-4">
+    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="import-title" tabIndex={-1} className="sn-dialog-shell sn-scroll-dialog w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-zinc-900 rounded-2xl p-5 space-y-4">
       <h2 id="import-title" className="text-lg font-semibold">备份导入预览</h2>
       <p className="text-sm">共 {backup.notes.length} 条笔记。现有笔记与工作区会保留。导入的回收站记录重新保留七天。</p>
       <label className="block text-sm">导入位置
