@@ -652,3 +652,75 @@ button:disabled { cursor: not-allowed; }
 .sn-editor-canvas > div > div:first-child { border-radius:0; background:var(--sn-sidebar); }
 .sn-editor-canvas textarea { border-radius:6px; }
 @media(max-height:560px) { .sn-editor-canvas .sn-typora-page { min-height:140px; padding:12px 18px; } .sn-editor-canvas .sn-typora-blocks { min-height:100px; } }
+
+/* Journal workspace: a quiet navigation rail and a distinct writing surface. */
+:root {
+  --sn-paper: #f8f9fc;
+  --sn-sidebar: #eff1f7;
+  --sn-ink: #22283b;
+  --sn-muted: #5c657a;
+  --sn-line: #dce1ec;
+  --sn-soft: #e6eaf5;
+  --sn-writing: #495ba5;
+  --sn-writing-hover: #394a90;
+  --sn-writing-text: #fff;
+}
+.dark {
+  --sn-paper: #191d28;
+  --sn-sidebar: #151924;
+  --sn-surface: #212635;
+  --sn-ink: #eef0fa;
+  --sn-muted: #adb6ca;
+  --sn-line: #353e52;
+  --sn-soft: #2b354d;
+  --sn-writing: #b7c4ff;
+  --sn-writing-hover: #d0d8ff;
+  --sn-writing-text: #1b2548;
+}
+.sn-journal { max-width: 1060px; }
+.sn-topbar { margin-bottom: clamp(28px, 5vw, 52px); }
+.sn-search { flex-basis: 160px; }
+.sn-introduction {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 20px;
+  margin-bottom: 20px;
+}
+.sn-introduction h1 {
+  font: 600 clamp(26px, 4vw, 39px)/1.25 var(--sn-sans);
+  letter-spacing: -.035em;
+}
+.sn-introduction :is(time,p) { margin: 0; font-size: 13px; color: var(--sn-muted); }
+.sn-composer {
+  margin-bottom: 0;
+  border-inline-start: 3px solid var(--sn-writing);
+  border-radius: 10px;
+  padding-inline: clamp(14px, 3vw, 25px);
+}
+.sn-composer:focus-within { border-inline-start-color: var(--sn-writing); }
+.sn-composer .sn-primary:not(:disabled) { background: var(--sn-writing); color: var(--sn-writing-text); }
+.sn-composer .sn-primary:not(:disabled):hover { background: var(--sn-writing-hover); }
+.sn-sidebar .sn-nav-item.is-active { color: var(--sn-writing); }
+.sn-library-actions { margin: 0; padding: 14px 0 18px; }
+.sn-feed-tools {
+  position: static;
+  height: auto;
+  justify-content: space-between;
+  gap: 6px 16px;
+  border-top: 1px solid var(--sn-line);
+  padding: 10px 0;
+}
+.sn-feed-tools > span { display: inline; }
+.sn-feed-tools > div { margin-inline-start: auto; }
+.sn-empty {
+  border-top: 1px solid var(--sn-line);
+  text-align: start;
+  padding: clamp(23px, 5vw, 42px) 0;
+}
+.sn-journal :is(button,summary,a):focus-visible,
+.sn-sidebar :is(button,a):focus-visible {
+  outline: 2px solid var(--sn-writing);
+  outline-offset: 2px;
+}

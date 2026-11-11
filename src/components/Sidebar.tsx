@@ -41,6 +41,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = (props) => {
   const { tags, activeCategory, activeTag, workspaces = [], activeWorkspaceId = 'default', workspaceCounts = {}, isMobileOpen, onCloseMobile } = props;
+  const { onOpenSponsorModal } = props;
   const [collapsed, setCollapsed] = useState(()=>{try{return localStorage.getItem('stillnote_sidebar_collapsed')==='true';}catch{return false;}});
   React.useEffect(()=>{try{localStorage.setItem('stillnote_sidebar_collapsed',String(collapsed));}catch{}},[collapsed]);
   const [sidebarWidth,setSidebarWidth]=useState(()=>{try{return Math.max(210,Math.min(360,Number(localStorage.getItem('stillnote_sidebar_width'))||260));}catch{return 260;}});
@@ -80,9 +81,9 @@ export const Sidebar: React.FC<SidebarProps> = (props) => {
         <button onClick={() => go(() => props.onOpenResourceManager?.())}><Image size={15} />图片资源</button>
 
         <button onClick={() => go(() => props.onSelectCategory('trash'))}><Trash2 size={15} />回收站 {props.trashNotesCount || ''}</button>
-        <button onClick={() => go(() => props.onOpenSponsorModal?.())}><Heart size={15} />支持作者</button>
         <button onClick={props.onToggleTheme}>{props.theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}切换{props.theme === 'dark' ? '浅色' : '深色'}</button>
       </div></SidebarMenu>}
+      {onOpenSponsorModal && <button type="button" className="sn-nav-item" title="支持作者" aria-label="支持作者" onClick={() => go(onOpenSponsorModal)}><Heart size={18} />{(!collapsed || mobile) && <span>支持作者</span>}</button>}
       <button className="sn-nav-item sn-settings-link" title="系统设置" onClick={() => go(props.onOpenSettings)}><Settings size={18} />{(!collapsed || mobile) && <span>系统设置</span>}</button>
     </footer>
     {!mobile&&!collapsed&&<div role="separator" aria-label="调整侧边栏宽度" aria-orientation="vertical" tabIndex={0} className="sn-sidebar-resize" onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const width=Math.max(210,Math.min(360,sidebarWidth+(e.key==='ArrowRight'?10:-10)));setSidebarWidth(width);try{localStorage.setItem('stillnote_sidebar_width',String(width));}catch{}}}} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId)){const width=Math.max(210,Math.min(360,e.clientX-e.currentTarget.parentElement!.getBoundingClientRect().left));setSidebarWidth(width);try{localStorage.setItem('stillnote_sidebar_width',String(width));}catch{}}}} onPointerUp={e=>e.currentTarget.releasePointerCapture(e.pointerId)} />}
