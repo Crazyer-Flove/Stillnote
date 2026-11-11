@@ -17,14 +17,14 @@ Stillnote（原 FloveNote）是一款本地优先的 Markdown 笔记工具。无
 
 | 文件 | 使用方式 |
 | --- | --- |
-| `Stillnote-1.4.1-Windows-x64-Portable.exe` | 双击直接运行，首次解压运行时可能稍慢 |
-| `Stillnote-1.4.1-Windows-x64-Setup.exe` | 当前用户安装，支持选择安装位置与开始菜单入口 |
+| `Stillnote-1.4.2-Windows-x64-Portable.exe` | 双击直接运行，首次解压运行时可能稍慢 |
+| `Stillnote-1.4.2-Windows-x64-Setup.exe` | 当前用户安装，支持选择安装位置与开始菜单入口 |
 | `SHA256SUMS.txt` | 核对下载文件 SHA-256 |
 
 桌面快捷方式在「系统设置 → 外观 → 创建桌面快捷方式」主动创建。便携版移动位置后，请重新创建快捷方式。当前 EXE 未签名，请从本仓库下载并核验来源。
 
 ```powershell
-Get-FileHash .\Stillnote-1.4.1-Windows-x64-Portable.exe -Algorithm SHA256
+Get-FileHash .\Stillnote-1.4.2-Windows-x64-Portable.exe -Algorithm SHA256
 ```
 
 ## 1.4.0 界面更新
@@ -40,7 +40,7 @@ Get-FileHash .\Stillnote-1.4.1-Windows-x64-Portable.exe -Algorithm SHA256
 - **分类**：使用工作区、收藏和置顶。标签功能已移除；旧笔记正文中的 `#文字` 保留为普通文本，旧备份中的元数据仍可兼容读取。
 - **侧边栏**：常驻按钮展开或收起；拖动右边缘调整宽度，键盘聚焦分隔条后用左右方向键调节。状态保存在当前应用中。
 - **支持作者**：点击侧边栏底部的爱心图标直接打开。
-- **窗口缩放**：桌面版支持 `Ctrl +` 放大、`Ctrl -` 缩小、`Ctrl 0` 重置。窄窗口自动切换移动导航；正文可换行，代码和表格在局部横向滚动。
+- **窗口缩放**：桌面版支持触控板或触摸屏双指捏合，围绕手势位置在 1–3 倍之间缩放。也可以通过 `Ctrl +`、`Ctrl -` 和 `Ctrl 0` 调节或重置键盘缩放。
 - **局部放大**：在主界面或完整编辑器顶部点按放大镜图标。移动鼠标、触摸拖动或按方向键可查看任意位置的 2 倍放大效果，按 Esc 或点关闭按钮退出。桌面版和网页版均支持。
 
 选择根目录后，预览并确认写入，目录结构为：

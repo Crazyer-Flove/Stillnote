@@ -59,6 +59,8 @@ async function createWindow(){
   });
  }
  await window.loadURL('app://stillnote/');
+ // Use Chromium's visual viewport zoom so pinching keeps the layout in place.
+ await window.webContents.setVisualZoomLevelLimits(1, 3);
 }
 const lock=smokeDir||app.requestSingleInstanceLock();
 if(!lock)app.quit();else{

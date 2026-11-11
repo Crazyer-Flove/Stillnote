@@ -542,7 +542,7 @@ button:disabled { cursor: not-allowed; }
 .sn-search { flex-basis:240px; }
 .sn-editor-dialog { max-height:94dvh; }
 .sn-sidebar { overflow-y:auto; overflow-x:visible; }
-@media (min-width:768px) { .sn-sidebar.is-collapsed { width:76px!important; } .sn-desktop-sidebar .sn-sidebar.is-collapsed .sn-brand-row{justify-content:flex-start;} .is-collapsed .sn-collapse{right:-12px;top:12px;} }
+@media (min-width:768px) { .sn-sidebar.is-collapsed { width:76px!important; } .is-collapsed .sn-collapse{right:-12px;top:12px;} }
 @media (max-width:767px) { .sn-editor-dialog,.sn-settings-dialog { height:94dvh!important; max-height:94dvh; } .sn-introduction h1{font-size:clamp(24px,6vw,32px);} .sn-composer-tools{flex-wrap:wrap;} .sn-mobile-overlay .sn-sidebar{width:min(290px,85vw)!important;} }
 @media (max-height:650px) { .sn-sidebar{padding-top:12px;padding-bottom:12px;} .sn-brand-row{margin-bottom:6px;height:54px;} .sn-workspace{margin-bottom:8px;} .sn-nav{padding-bottom:12px;} }
 .sn-sidebar { overflow-x:hidden; }
